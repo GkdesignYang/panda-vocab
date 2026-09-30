@@ -1,0 +1,1854 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="description" content="熊猫背单词：竖屏背英语单词小游戏。点对释义的竹笋让熊猫吃掉它，选错就挨竹笋的拳头。含初中、高中、四级、六级、SAT、PET、托福、雅思 8 本词书，支持 5 位玩家、错题本导出和 PK 对战。">
+<meta name="theme-color" content="#4f8a2b">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Ccircle cx='16' cy='16' r='11' fill='%2334343b'/%3E%3Ccircle cx='48' cy='16' r='11' fill='%2334343b'/%3E%3Ccircle cx='32' cy='36' r='25' fill='%23fdfdf8' stroke='%2325252b' stroke-width='3'/%3E%3Cellipse cx='22' cy='36' rx='7' ry='9' transform='rotate(35 22 36)' fill='%2334343b'/%3E%3Cellipse cx='42' cy='36' rx='7' ry='9' transform='rotate(-35 42 36)' fill='%2334343b'/%3E%3Ccircle cx='23' cy='35' r='2.6' fill='%23fff'/%3E%3Ccircle cx='41' cy='35' r='2.6' fill='%23fff'/%3E%3Cellipse cx='32' cy='45' rx='4' ry='3' fill='%2325252b'/%3E%3C/svg%3E">
+<title>熊猫背单词</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@600;700;800&family=ZCOOL+KuaiLe&display=swap" media="print" onload="this.media='all'">
+<style>
+/* Layout: one portrait "phone" stage centred on the page; a canvas bamboo path scrolls behind DOM sprites, HUD and menu screens. Single deliberate light look (bamboo forest), so no dark variant. */
+:root{
+  --leaf:#4f8a2b; --leaf-d:#35621b; --leaf-l:#a6d36e; --moss:#cde7a9;
+  --cream:#fffbea; --paper:#fffdf5; --ink:#24321a; --muted:#66775a;
+  --bark:#7a6331; --berry:#e0554b; --berry-d:#b53a31; --sun:#f6c21c; --sky:#dcefc4;
+  --f-zh:"ZCOOL KuaiLe","PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;
+  --f-en:"Baloo 2","Arial Rounded MT Bold","Nunito","Trebuchet MS",system-ui,sans-serif;
+  --f-ui:-apple-system,BlinkMacSystemFont,"PingFang SC","Hiragino Sans GB","Microsoft YaHei","Noto Sans SC",sans-serif;
+  --sw:96px; --sh:119px; --pw:118px; --ph:143px;
+  color-scheme:light;
+}
+[hidden]{display:none!important}
+html{height:100%;box-sizing:border-box}
+*,*::before,*::after{box-sizing:border-box}
+body{height:100%;margin:0;overflow:hidden;color:var(--ink);font-family:var(--f-ui);
+  background:#b9d79a repeating-linear-gradient(90deg,rgba(255,255,255,.07) 0 22px,rgba(0,0,0,.035) 22px 26px,transparent 26px 70px);
+  -webkit-tap-highlight-color:transparent;-webkit-user-select:none;user-select:none}
+button{font:inherit;color:inherit;cursor:pointer}
+button:focus-visible,input:focus-visible+span{outline:3px solid var(--sun);outline-offset:2px}
+#stage{position:relative;height:100%;max-width:520px;margin:0 auto;overflow:hidden;background:var(--sky);touch-action:manipulation;box-shadow:0 0 0 1px rgba(53,98,27,.15),0 10px 40px rgba(40,70,20,.25)}
+#bg{position:absolute;inset:0;width:100%;height:100%;display:block}
+#world,#fx{position:absolute;inset:0;pointer-events:none}
+#world{z-index:1}#fx{z-index:5}
+.paused *,.paused *::before,.paused *::after{animation-play-state:paused!important}
+
+/* ---------- sprites ---------- */
+.sprite{position:absolute;left:0;top:0;transform-origin:50% 100%;will-change:transform}
+.panda{width:var(--pw);height:var(--ph);z-index:2}
+.p-rot{position:absolute;inset:0;transform-origin:50% 62%}
+.p-bob{position:absolute;inset:0;transform-origin:50% 95%}
+.pd{position:absolute;inset:0;width:100%;height:100%;overflow:visible}
+.pd-front{display:none}
+.panda.front .pd-front{display:block}.panda.front .pd-back{display:none}
+.pd g.face{display:none}
+.panda[data-face=normal] .face-normal,.panda[data-face=happy] .face-happy,.panda[data-face=hurt] .face-hurt,
+.panda[data-face=dizzy] .face-dizzy,.panda[data-face=chew] .face-chew{display:inline}
+.panda.walk .p-bob{animation:waddle 1.05s ease-in-out infinite}
+.panda.walk .legL{animation:stepL 1.05s ease-in-out infinite}
+.panda.walk .legR{animation:stepL 1.05s ease-in-out -.525s infinite}
+.panda.walk .tail{animation:tail .525s ease-in-out infinite alternate}
+.pd g.legL,.pd g.legR,.pd g.tail,.pd .chewm{transform-box:fill-box;transform-origin:50% 50%}
+.panda[data-face=chew] .chewm{animation:chew .22s ease-in-out infinite alternate}
+@keyframes waddle{0%{transform:translateY(0) rotate(-7deg)}25%{transform:translateY(-6%) rotate(0)}50%{transform:translateY(0) rotate(7deg)}75%{transform:translateY(-6%) rotate(0)}100%{transform:translateY(0) rotate(-7deg)}}
+@keyframes stepL{0%,55%,100%{transform:translateY(0)}20%{transform:translateY(-7px)}}
+@keyframes tail{from{transform:rotate(-18deg)}to{transform:rotate(18deg)}}
+@keyframes chew{from{transform:scale(1,.45)}to{transform:scale(1.1,1.15)}}
+.p-star{position:absolute;left:0;top:0;width:22px;height:22px;margin:-11px 0 0 -11px;display:none}
+.panda.dizzy .p-star{display:block}
+
+.shoot{width:var(--sw);height:var(--sh);padding:0;border:0;background:none;pointer-events:auto;z-index:3;touch-action:manipulation}
+.shoot:disabled{cursor:default}
+.shoot svg.sh{position:absolute;inset:0;z-index:1;width:100%;height:100%;overflow:visible;transition:filter .2s}
+.shoot g.face{display:none}
+.shoot[data-face=normal] .face-normal,.shoot[data-face=angry] .face-angry,.shoot[data-face=sad] .face-sad,.shoot[data-face=wow] .face-wow{display:inline}
+.shoot .lab{position:absolute;z-index:2;left:-3%;right:-3%;top:61%;height:29%;display:flex;align-items:center;justify-content:center;padding:1px 5px;
+  background:rgba(255,252,236,.95);border:2.5px solid var(--leaf-d);border-radius:12px;box-shadow:0 2px 0 rgba(53,98,27,.35);overflow:hidden}
+.shoot .lab-t{display:block;max-width:100%;line-height:1.05;font-weight:800;color:var(--ink);text-align:center;white-space:nowrap}
+.shoot .lab-t.en{font-family:var(--f-en);font-weight:700;letter-spacing:.01em}
+.shoot .lab-t.wrap{white-space:normal}
+.shoot .key{position:absolute;top:-2px;left:50%;transform:translateX(-50%);font:700 11px/1 var(--f-en);color:var(--leaf-d);opacity:0}
+@media (hover:hover) and (pointer:fine){.shoot:not(:disabled) .key{opacity:.55}}
+.shoot:not(:disabled):hover svg.sh{filter:drop-shadow(0 0 6px rgba(255,255,255,.95)) brightness(1.04)}
+.shoot:focus-visible{outline:none}.shoot:focus-visible .lab{outline:3px solid var(--sun)}
+.shoot.answer svg.sh{filter:drop-shadow(0 0 8px #fff6b0) drop-shadow(0 0 4px var(--sun))}
+.shoot.answer .lab{border-color:#c28d00;background:#fff4c2}
+.shoot.picked-bad .lab{border-color:var(--berry-d);background:#ffe3df}
+.shoot.chosen .lab{opacity:0;transition:opacity .15s}
+.arm{position:absolute;left:50%;top:47%;width:0;height:0;z-index:0;display:none}
+.shoot.attack .arm{display:block}
+.stick{position:absolute;left:0;top:-6px;height:12px;width:10px;border-radius:6px;background:#93c45a;border:2.5px solid var(--leaf-d)}
+.fist{position:absolute;left:0;top:-16px;width:32px;height:32px;margin-left:-6px}
+.fist svg{width:100%;height:100%;overflow:visible}
+
+.pow{position:absolute;left:0;top:0;width:64px;height:58px;margin:-29px 0 0 -32px;animation:pow .38s ease-out forwards;pointer-events:none}
+.pow b{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font:28px/1 var(--f-zh);color:#fff;-webkit-text-stroke:1.5px var(--berry-d);paint-order:stroke;transform:rotate(-8deg)}
+@keyframes pow{0%{transform:scale(.2);opacity:1}35%{transform:scale(1.15)}100%{transform:scale(1);opacity:0}}
+.crumb{position:absolute;left:0;top:0;width:8px;height:8px;border-radius:2px 5px;background:#9ccd5f;border:1.5px solid var(--leaf-d);animation:crumb .6s ease-out forwards}
+@keyframes crumb{to{transform:translate(var(--dx),var(--dy)) rotate(260deg);opacity:0}}
+.float{position:absolute;left:0;top:0;transform:translate(-50%,-50%);font:26px/1 var(--f-zh);color:#fff;-webkit-text-stroke:1.5px var(--leaf-d);paint-order:stroke;white-space:nowrap;animation:floatUp 1s ease-out forwards}
+.float.bad{-webkit-text-stroke-color:var(--berry-d)}
+@keyframes floatUp{0%{opacity:0;margin-top:10px}15%{opacity:1}100%{opacity:0;margin-top:-50px}}
+
+/* ---------- HUD ---------- */
+#hud{position:absolute;left:0;right:0;top:0;z-index:6;padding:8px 12px 0;pointer-events:none}
+#hud>*{pointer-events:auto}
+.hud-top{display:flex;align-items:center;gap:10px;height:40px}
+.icon-btn{flex:none;width:40px;height:40px;border-radius:12px;border:2.5px solid var(--leaf-d);background:var(--cream);display:grid;place-items:center;box-shadow:0 3px 0 var(--leaf-d);padding:0}
+.icon-btn:active{transform:translateY(2px);box-shadow:0 1px 0 var(--leaf-d)}
+.icon-btn svg{width:20px;height:20px}
+.hud-title{flex:1;min-width:0;display:flex;flex-direction:column;line-height:1.1;color:var(--leaf-d);text-shadow:0 1px 0 rgba(255,255,255,.7)}
+.hud-title b{font:17px/1.1 var(--f-zh);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.hud-title span{font-size:12px;font-weight:600;color:var(--muted)}
+.dots{display:flex;gap:4px;flex:none}
+.dots i{width:10px;height:14px;border-radius:50% 50% 50% 50%/60% 60% 40% 40%;background:rgba(255,255,255,.7);border:2px solid var(--leaf-d);opacity:.65}
+.dots i.cur{background:var(--sun);opacity:1}
+.dots i.ok{background:var(--leaf-l);opacity:1}
+.dots i.bad{background:var(--berry);opacity:1}
+.prompt{position:relative;margin-top:8px;height:104px;border-radius:20px;background:var(--cream);border:3px solid var(--leaf-d);box-shadow:0 5px 0 var(--leaf-d),0 10px 22px rgba(40,70,20,.2);
+  display:flex;flex-direction:column;align-items:center;justify-content:center;padding:6px 44px;text-align:center;overflow:hidden}
+.prompt::before{content:"";position:absolute;inset:5px;border-radius:14px;border:1.5px dashed rgba(79,138,43,.35);pointer-events:none}
+.pw-dir{position:absolute;left:10px;top:8px;font-size:11px;font-weight:700;color:var(--leaf);background:#eaf5d8;border-radius:8px;padding:2px 7px}
+.pw-main{max-width:100%;white-space:nowrap;line-height:1.05}
+.pw-en{display:inline-block;font:800 40px/1.05 var(--f-en);color:var(--ink);letter-spacing:.01em}
+.pw-zh{display:inline-block;font:34px/1.1 var(--f-zh);color:var(--ink)}
+.pw-zh .pos{font:700 18px var(--f-en);color:var(--leaf);margin-right:6px;vertical-align:.2em}
+.pw-sub{margin-top:4px;font-size:13px;color:var(--muted);max-width:100%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.pw-sub .ph{font-family:"Lucida Sans Unicode","Segoe UI",var(--f-ui)}
+.pw-ans{position:absolute;left:0;right:0;bottom:0;padding:5px 12px 6px;font-size:14px;font-weight:600;color:#fff;background:var(--leaf);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;transform:translateY(100%);transition:transform .2s ease-out}
+.pw-ans.show{transform:none}
+.pw-ans.bad{background:var(--berry)}
+.pw-ans b{font-family:var(--f-en);font-size:16px;margin-right:4px}
+.spk{position:absolute;right:8px;top:50%;margin-top:-18px;width:36px;height:36px;border-radius:50%;border:2px solid var(--leaf);background:#eaf5d8;display:grid;place-items:center;padding:0}
+.spk svg{width:18px;height:18px}
+.spk[hidden]{display:none}
+.timer{margin:12px 6px 0;height:10px;border-radius:6px;background:rgba(255,255,255,.65);border:2px solid var(--leaf-d);overflow:hidden}
+.timer i{display:block;height:100%;width:100%;background:var(--leaf-l);border-radius:4px;transform-origin:0 50%}
+.timer.hurry i{background:var(--berry)}
+.timer.mid i{background:var(--sun)}
+
+/* ---------- screens ---------- */
+.screen{position:absolute;inset:0;z-index:8;background:linear-gradient(rgba(220,239,196,.5),rgba(220,239,196,.78));overflow-y:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;padding:0 16px 28px}
+.hero{display:flex;flex-direction:column;align-items:center;padding-top:22px;text-align:center}
+.mascot{position:relative;width:200px;height:150px}
+.mascot .m-panda{position:absolute;left:18px;bottom:0;width:112px;height:136px;animation:hello 1.6s ease-in-out infinite}
+.mascot .m-shoot{position:absolute;right:14px;bottom:0;width:66px;height:82px;animation:hello 1.6s ease-in-out -.8s infinite}
+.mascot svg{width:100%;height:100%;overflow:visible}
+@keyframes hello{0%,100%{transform:translateY(0) rotate(-2deg)}50%{transform:translateY(-6px) rotate(2deg)}}
+.logo{margin:6px 0 0;font:48px/1.05 var(--f-zh);color:var(--leaf-d);letter-spacing:.04em;text-shadow:0 3px 0 #fff,0 5px 0 rgba(53,98,27,.25);text-wrap:balance}
+.tag{margin:8px 0 0;font-size:14px;color:var(--muted);max-width:30ch}
+.panel{margin-top:18px;background:rgba(255,253,245,.9);border:2.5px solid var(--leaf-d);border-radius:18px;padding:12px;box-shadow:0 4px 0 rgba(53,98,27,.55)}
+.row{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.row+.row{margin-top:10px}
+.lbl{font-size:13px;font-weight:700;color:var(--leaf-d);min-width:4em}
+.seg{display:flex;flex:1;min-width:0;background:#e8f3d6;border-radius:12px;padding:3px;gap:3px}
+.seg button{flex:1;border:0;background:none;border-radius:9px;padding:7px 4px;font-size:14px;font-weight:700;color:var(--muted);white-space:nowrap}
+.seg button[aria-checked=true]{background:var(--leaf);color:#fff;box-shadow:0 2px 0 var(--leaf-d)}
+.tog{display:inline-flex;align-items:center;gap:8px;font-size:14px;font-weight:600;cursor:pointer}
+.tog input{position:absolute;opacity:0;width:1px;height:1px}
+.tog span{width:42px;height:24px;border-radius:12px;background:#cfd8c4;position:relative;transition:background .2s;flex:none}
+.tog span::after{content:"";position:absolute;left:3px;top:3px;width:18px;height:18px;border-radius:50%;background:#fff;box-shadow:0 1px 2px rgba(0,0,0,.25);transition:transform .2s}
+.tog input:checked+span{background:var(--leaf)}
+.tog input:checked+span::after{transform:translateX(18px)}
+.sec{margin:22px 2px 10px;font:22px/1.2 var(--f-zh);color:var(--leaf-d)}
+.books{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+.book{position:relative;text-align:left;border:2.5px solid var(--leaf-d);border-radius:14px 16px 16px 14px;background:var(--paper);padding:12px 12px 12px 22px;box-shadow:0 4px 0 rgba(53,98,27,.55);display:flex;flex-direction:column;gap:3px;min-width:0;overflow:hidden}
+.book:active{transform:translateY(2px);box-shadow:0 2px 0 rgba(53,98,27,.55)}
+.book .spine{position:absolute;left:0;top:0;bottom:0;width:12px;background:var(--c);border-right:2px solid rgba(0,0,0,.18)}
+.book .spine::after{content:"";position:absolute;left:3px;right:3px;top:12px;height:3px;background:rgba(255,255,255,.55);box-shadow:0 7px 0 rgba(255,255,255,.55)}
+.b-name{font:20px/1.15 var(--f-zh);color:var(--ink)}
+.b-desc{font-size:12px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.b-meta{margin-top:4px;font-size:12px;font-weight:700;color:var(--leaf-d);font-variant-numeric:tabular-nums}
+.b-bar{height:6px;border-radius:3px;background:#e7eedc;overflow:hidden;margin-top:4px}
+.b-bar i{display:block;height:100%;background:var(--c)}
+.foot{margin:18px 4px 0;font-size:11.5px;line-height:1.6;color:var(--muted)}
+
+.lv-head{position:sticky;top:0;z-index:2;display:flex;align-items:center;gap:12px;padding:12px 0 10px;background:linear-gradient(var(--sky) 80%,rgba(220,239,196,0))}
+.lv-head h2{margin:0;font:26px/1.1 var(--f-zh);color:var(--leaf-d)}
+.lv-head p{margin:3px 0 0;font-size:12.5px;color:var(--muted);font-variant-numeric:tabular-nums}
+.lv-actions{display:flex;gap:10px;flex-wrap:wrap}
+.btn{border:2.5px solid var(--leaf-d);background:var(--paper);border-radius:14px;padding:11px 16px;font-size:15px;font-weight:700;color:var(--leaf-d);box-shadow:0 4px 0 var(--leaf-d)}
+.btn:active{transform:translateY(3px);box-shadow:0 1px 0 var(--leaf-d)}
+.btn.primary{background:var(--leaf);color:#fff}
+.btn:disabled{opacity:.5;cursor:default}
+.lv-actions .btn.primary{flex:1 1 160px}
+.chips{display:flex;gap:6px;overflow-x:auto;padding:14px 2px 6px;scrollbar-width:none}
+.chips::-webkit-scrollbar{display:none}
+.chips button{flex:none;border:2px solid var(--leaf-d);background:var(--paper);border-radius:999px;padding:5px 11px;font-size:12.5px;font-weight:700;color:var(--leaf-d);font-variant-numeric:tabular-nums}
+.chips button[aria-pressed=true]{background:var(--leaf-d);color:#fff}
+.grid{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:8px;padding-top:8px}
+.lv{aspect-ratio:1/1.05;border:2.5px solid rgba(53,98,27,.55);border-radius:14px;background:rgba(255,253,245,.85);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;padding:0;box-shadow:0 3px 0 rgba(53,98,27,.35)}
+.lv b{font:700 19px/1 var(--f-en);color:var(--ink);font-variant-numeric:tabular-nums}
+.lv .st{font-size:10px;letter-spacing:1px;color:#d6d9cc;line-height:1}
+.lv .st em{font-style:normal;color:var(--sun)}
+.lv.done{background:#f1f9e3;border-color:var(--leaf-d)}
+.lv.cur{background:var(--sun);border-color:#9a7400;box-shadow:0 3px 0 #9a7400}
+.lv.cur .st{color:rgba(0,0,0,.2)}
+
+.overlay{position:absolute;inset:0;z-index:20;display:flex;align-items:center;justify-content:center;padding:16px;background:rgba(36,50,26,.45)}
+.card{width:100%;max-width:400px;max-height:100%;overflow-y:auto;background:var(--paper);border:3px solid var(--leaf-d);border-radius:22px;box-shadow:0 6px 0 var(--leaf-d),0 18px 40px rgba(0,0,0,.25);padding:20px 16px 18px;text-align:center}
+.card h2{margin:0;font:28px/1.15 var(--f-zh);color:var(--leaf-d)}
+.card p{margin:6px 0 0;color:var(--muted);font-size:14px}
+.card .btns{display:flex;flex-direction:column;gap:10px;margin-top:18px}
+.card .btns.inline{flex-direction:row;flex-wrap:wrap}
+.card .btns.inline .btn{flex:1 1 30%;padding:11px 8px;white-space:nowrap}
+.r-stars{display:flex;justify-content:center;gap:6px;margin-bottom:6px}
+.r-stars svg{width:52px;height:52px}
+.r-stars svg:nth-child(2){transform:translateY(-10px);width:60px;height:60px}
+.r-stars .on{animation:starIn .5s cubic-bezier(.3,1.6,.5,1) both}
+.r-stars .on:nth-child(2){animation-delay:.18s}.r-stars .on:nth-child(3){animation-delay:.36s}
+@keyframes starIn{from{transform:scale(0) rotate(-90deg)}}
+.r-score{font:800 20px var(--f-en);color:var(--ink);margin-top:4px}
+.r-list{list-style:none;margin:14px 0 0;padding:0;text-align:left;border-top:1.5px dashed rgba(79,138,43,.4)}
+.r-list li{display:grid;grid-template-columns:22px minmax(0,1fr);gap:0 8px;padding:7px 2px;border-bottom:1.5px dashed rgba(79,138,43,.4);cursor:pointer}
+.r-list .mk{grid-row:span 2;width:20px;height:20px;border-radius:50%;display:grid;place-items:center;color:#fff;font-size:12px;font-weight:800;margin-top:2px;background:var(--leaf)}
+.r-list li.bad .mk{background:var(--berry)}
+.r-list .w{font:700 17px/1.2 var(--f-en);color:var(--ink);min-width:0;overflow-wrap:anywhere}
+.r-list .w small{font:400 12px var(--f-ui);color:var(--muted);margin-left:6px}
+.r-list .m{font-size:13px;color:var(--muted);min-width:0}
+.banner{position:absolute;left:0;right:0;top:38%;z-index:15;text-align:center;pointer-events:none;animation:bannerIn 1.3s ease-out forwards}
+.banner b{display:block;font:52px/1.05 var(--f-zh);color:#fff;-webkit-text-stroke:2px var(--leaf-d);paint-order:stroke;text-shadow:0 5px 0 var(--leaf-d)}
+.banner span{display:inline-block;margin-top:10px;font-size:14px;font-weight:700;color:var(--leaf-d);background:rgba(255,253,245,.92);border:2px solid var(--leaf-d);border-radius:999px;padding:5px 14px}
+@keyframes bannerIn{0%{opacity:0;transform:scale(.6)}18%{opacity:1;transform:scale(1.05)}28%{transform:scale(1)}82%{opacity:1}100%{opacity:0;transform:translateY(-20px)}}
+.spin{width:64px;height:64px;margin:0 auto 10px;animation:hello 1s ease-in-out infinite}
+.empty{padding:30px 10px;text-align:center;color:var(--muted);font-size:14px}
+/* ---------- players / notebook / PK ---------- */
+input,select{font:inherit}
+.topbar{display:flex;justify-content:space-between;align-items:center;gap:10px;padding-top:12px}
+.pchip{display:inline-flex;align-items:center;gap:8px;min-width:0;border:2.5px solid var(--leaf-d);background:var(--paper);border-radius:999px;padding:3px 12px 3px 3px;box-shadow:0 3px 0 rgba(53,98,27,.5)}
+.pchip:active{transform:translateY(2px);box-shadow:0 1px 0 rgba(53,98,27,.5)}
+.pchip b{font-size:15px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:9em}
+.pchip .sw{font-size:12px;color:var(--muted);font-weight:700;white-space:nowrap}
+.av{display:inline-block;width:34px;height:34px;flex:none}
+.av svg{width:100%;height:100%;display:block;overflow:visible}
+.hero.compact{padding-top:4px}
+.hero.compact .mascot{transform:scale(.82);margin:-12px 0 -18px}
+.acts{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin-top:16px}
+.act{display:grid;grid-template-columns:auto minmax(0,1fr);column-gap:10px;align-items:center;text-align:left;border:2.5px solid var(--leaf-d);background:var(--paper);border-radius:16px;padding:10px 12px;box-shadow:0 4px 0 rgba(53,98,27,.55);min-width:0}
+.act:active{transform:translateY(2px);box-shadow:0 2px 0 rgba(53,98,27,.55)}
+.act svg{grid-row:span 2;width:40px;height:40px}
+.act b{font:21px/1.1 var(--f-zh);color:var(--ink)}
+.act span{font-size:12px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.act.pk{background:#fff5d9}
+.players{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin-top:18px}
+.pcard{position:relative;display:flex;flex-direction:column;align-items:center;gap:6px;border:2.5px solid var(--leaf-d);background:var(--paper);border-radius:18px;padding:16px 10px 14px;box-shadow:0 4px 0 rgba(53,98,27,.55);min-width:0}
+.pcard:active{transform:translateY(2px);box-shadow:0 2px 0 rgba(53,98,27,.55)}
+.pcard .av{width:66px;height:66px}
+.pcard b{font:21px/1.15 var(--f-zh);color:var(--ink);max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.pcard small{font-size:12px;color:var(--muted);font-variant-numeric:tabular-nums}
+.pcard .tagme{position:absolute;top:8px;right:8px;font-size:11px;font-weight:700;color:#fff;background:var(--leaf);border-radius:999px;padding:2px 7px}
+.pcard .tagedit{position:absolute;top:8px;right:8px;font-size:11px;font-weight:700;color:var(--leaf-d);background:#eaf5d8;border:1.5px solid var(--leaf);border-radius:999px;padding:2px 8px}
+.pcard.add{border-style:dashed;background:rgba(255,253,245,.65);color:var(--leaf-d);justify-content:center;min-height:150px;font-weight:700}
+.pcard.add i{font:800 40px/1 var(--f-en);font-style:normal}
+.center{justify-content:center}
+.field{display:flex;flex-direction:column;gap:6px;text-align:left;margin-top:14px}
+.field>span{font-size:13px;font-weight:700;color:var(--leaf-d)}
+.field input{font-size:17px;font-weight:600;padding:10px 12px;border:2.5px solid var(--leaf-d);border-radius:12px;background:#fff;color:var(--ink);-webkit-user-select:text;user-select:text;width:100%}
+.field input:focus{outline:3px solid var(--sun);outline-offset:1px}
+.pf-av{width:84px;height:84px;margin:12px auto 0}
+.swatches{display:flex;gap:12px;justify-content:center;margin-top:14px}
+.swatches button{width:38px;height:38px;border-radius:50%;border:3px solid #fff;background:var(--c);box-shadow:0 0 0 2px rgba(53,98,27,.35);padding:0}
+.swatches button[aria-checked=true]{box-shadow:0 0 0 3px var(--leaf-d)}
+.err{color:var(--berry-d)!important;font-size:13px;font-weight:600}
+.btn.danger{color:var(--berry-d);border-color:var(--berry-d);box-shadow:0 4px 0 var(--berry-d);background:#fff;margin-top:12px;width:100%}
+.btn.armed,.btn.danger.armed{background:var(--berry);color:#fff;border-color:var(--berry-d);box-shadow:0 4px 0 var(--berry-d)}
+.btn.sm{padding:8px 12px;font-size:13.5px;border-radius:12px;box-shadow:0 3px 0 var(--leaf-d)}
+.tools{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:12px}
+.tools .grow{flex:1}
+.seg.sm{flex:none}
+.seg.sm button{padding:5px 10px;font-size:12.5px}
+.nb-list{list-style:none;margin:10px 0 0;padding:0;display:flex;flex-direction:column;gap:8px}
+.nb-row{display:grid;grid-template-columns:36px minmax(0,1fr) auto;gap:10px;align-items:center;background:rgba(255,253,245,.95);border:2px solid rgba(53,98,27,.45);border-radius:14px;padding:10px}
+.nb-row .w{font:700 18px/1.2 var(--f-en);color:var(--ink);overflow-wrap:anywhere}
+.nb-row .w small{font:400 12px var(--f-ui);color:var(--muted);margin-left:6px}
+.nb-row .m{font-size:13px;color:var(--ink);margin-top:2px}
+.nb-row .meta{font-size:11.5px;color:var(--muted);margin-top:3px}
+.nb-row .meta em{font-style:normal;color:var(--berry-d);font-weight:700}
+.rbtn{width:36px;height:36px;border-radius:50%;border:2px solid var(--leaf);background:#eaf5d8;display:grid;place-items:center;padding:0}
+.rbtn svg{width:17px;height:17px}
+.okbtn{border:2px solid var(--leaf-d);background:var(--paper);border-radius:10px;padding:6px 8px;font-size:12px;font-weight:700;color:var(--leaf-d);white-space:nowrap}
+.cnt{display:inline-block;min-width:22px;padding:1px 6px;border-radius:999px;background:var(--berry);color:#fff;font:800 12px/1.5 var(--f-en);text-align:center}
+.hint{font-size:12.5px;color:var(--muted);margin:8px 2px 0}
+.toast{position:absolute;left:50%;bottom:28px;transform:translateX(-50%);z-index:60;background:var(--ink);color:#fff;padding:10px 16px;border-radius:999px;font-size:14px;font-weight:600;max-width:calc(100% - 32px);text-align:center;animation:toast 2.6s ease forwards;pointer-events:none}
+@keyframes toast{0%{opacity:0;transform:translate(-50%,10px)}10%,85%{opacity:1;transform:translate(-50%,0)}100%{opacity:0}}
+.copybox{width:100%;height:180px;margin-top:12px;font:13px/1.5 ui-monospace,Menlo,Consolas,monospace;border:2px solid var(--leaf-d);border-radius:12px;padding:10px;-webkit-user-select:text;user-select:text;resize:vertical;background:#fff;color:var(--ink)}
+.pk-item{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:4px 10px;align-items:center;text-align:left;width:100%;border:2.5px solid var(--leaf-d);background:var(--paper);border-radius:16px;padding:12px;box-shadow:0 4px 0 rgba(53,98,27,.55)}
+.pk-item:active{transform:translateY(2px);box-shadow:0 2px 0 rgba(53,98,27,.55)}
+.pk-item b{font:19px/1.15 var(--f-zh);color:var(--ink)}
+.pk-item .s{font-size:12.5px;color:var(--muted);grid-column:1}
+.pk-item .avs{grid-row:1/span 2;grid-column:2;display:flex}
+.avs .av{width:30px;height:30px;margin-left:-8px}
+.avs .av:first-child{margin-left:0}
+.pk-list{display:flex;flex-direction:column;gap:12px;margin-top:12px}
+.st-pill{display:inline-block;font-size:11px;font-weight:700;border-radius:999px;padding:1px 8px;margin-left:6px;vertical-align:.15em;background:#eaf5d8;color:var(--leaf-d)}
+.st-pill.done{background:var(--sun);color:#5a4400}
+.form-row{margin-top:14px}
+.form-row>.lbl{display:block;margin-bottom:6px}
+.bookpick{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px}
+.bookpick button{border:2px solid rgba(53,98,27,.5);background:#fff;border-radius:10px;padding:7px 2px;font-size:13px;font-weight:700;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;border-left:6px solid var(--c)}
+.bookpick button[aria-pressed=true]{background:var(--leaf-d);color:#fff;border-color:var(--leaf-d);border-left-color:var(--c)}
+.stepper{display:flex;align-items:center;gap:8px}
+.stepper button{width:40px;height:40px;border-radius:12px;border:2.5px solid var(--leaf-d);background:var(--paper);font:800 20px/1 var(--f-en);color:var(--leaf-d);padding:0}
+.stepper input{width:90px;text-align:center;font:700 18px var(--f-en);padding:7px 6px;border:2.5px solid var(--leaf-d);border-radius:12px;background:#fff;color:var(--ink);-webkit-user-select:text;user-select:text}
+.stepper span{font-size:13px;color:var(--muted)}
+.who{display:flex;flex-wrap:wrap;gap:8px}
+.who button{display:inline-flex;align-items:center;gap:6px;border:2.5px solid rgba(53,98,27,.45);background:#fff;border-radius:999px;padding:3px 12px 3px 3px;font-size:14px;font-weight:700;color:var(--ink)}
+.who button .av{width:30px;height:30px}
+.who button[aria-pressed=true]{border-color:var(--leaf-d);background:#eaf5d8;box-shadow:inset 0 0 0 1.5px var(--leaf-d)}
+.who button[aria-pressed=true]::after{content:"✓";color:var(--leaf-d);font-weight:800}
+.summary{margin-top:14px;font-size:13.5px;color:var(--leaf-d);font-weight:700;text-align:center}
+.board{list-style:none;padding:0;margin:14px 0 0;display:flex;flex-direction:column;gap:10px}
+.board li{display:grid;grid-template-columns:26px 46px minmax(0,1fr) auto;gap:10px;align-items:center;background:var(--paper);border:2.5px solid var(--leaf-d);border-radius:16px;padding:10px 12px;box-shadow:0 3px 0 rgba(53,98,27,.5)}
+.board .rk{font:800 20px var(--f-en);color:var(--muted);text-align:center}
+.board .av{width:46px;height:46px}
+.board .nm{font:19px/1.15 var(--f-zh);color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.board .sub{font-size:12px;color:var(--muted);font-variant-numeric:tabular-nums}
+.board .acc{font:800 24px/1 var(--f-en);color:var(--leaf-d);font-variant-numeric:tabular-nums}
+.board li.first{background:#fff4c2;border-color:#9a7400;box-shadow:0 3px 0 #9a7400}
+.board li.first .rk{color:#9a7400}
+.winner{margin-top:14px;display:flex;align-items:center;justify-content:center;gap:10px;font:24px/1.2 var(--f-zh);color:#7a5a00;background:#fff4c2;border:2.5px solid #9a7400;border-radius:16px;padding:10px 12px;text-align:center}
+.winner svg{width:34px;height:34px;flex:none}
+.hand .av{width:96px;height:96px;margin:6px auto 0;display:block}
+.hand ul{text-align:left;margin:12px 0 0;padding-left:20px;color:var(--muted);font-size:13.5px;line-height:1.7}
+.hudav{width:30px;height:30px;margin-right:-4px}
+@media (max-width:360px){.bookpick{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media (prefers-reduced-motion:reduce){.mascot .m-panda,.mascot .m-shoot,.banner,.toast{animation-duration:.01s}}
+@media (max-height:620px){.prompt{height:90px}.pw-en{font-size:34px}.pw-zh{font-size:28px}}
+</style>
+</head>
+<body>
+<div id="stage">
+  <canvas id="bg" aria-hidden="true"></canvas>
+  <div id="world"></div>
+  <div id="fx" aria-hidden="true"></div>
+
+  <div id="hud" hidden>
+    <div class="hud-top">
+      <button id="btnPause" class="icon-btn" aria-label="暂停"><svg viewBox="0 0 20 20" aria-hidden="true"><rect x="4" y="3" width="4" height="14" rx="1.5" fill="#35621b"/><rect x="12" y="3" width="4" height="14" rx="1.5" fill="#35621b"/></svg></button>
+      <span class="av hudav" id="hudAv"></span>
+      <div class="hud-title"><b id="hudBook">初中英语</b><span id="hudLevel">第 1 关</span></div>
+      <div id="dots" class="dots" aria-label="本关进度"></div>
+    </div>
+    <div class="prompt" id="prompt" aria-live="polite">
+      <span class="pw-dir" id="pwDir">英 → 中</span>
+      <div class="pw-main" id="pwMain"></div>
+      <div class="pw-sub" id="pwSub"></div>
+      <button class="spk" id="btnSpk" aria-label="朗读单词"><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M3 8h3l4-3.5v11L6 12H3z" fill="#4f8a2b"/><path d="M13 7.2a4 4 0 0 1 0 5.6M15.2 5a7 7 0 0 1 0 10" stroke="#4f8a2b" stroke-width="1.8" fill="none" stroke-linecap="round"/></svg></button>
+      <div class="pw-ans" id="pwAns"></div>
+    </div>
+    <div class="timer" id="timer"><i id="timerFill"></i></div>
+  </div>
+
+  <section id="scrPlayers" class="screen" hidden>
+    <div class="hero compact"><div class="mascot" id="mascot2"></div></div>
+    <h1 class="logo" style="text-align:center;font-size:40px">谁在玩？</h1>
+    <p class="tag" style="margin:8px auto 0;text-align:center">最多 5 位玩家。每个人的关卡进度和错题本分开保存在这台设备上。</p>
+    <div class="players" id="playerList"></div>
+    <div class="row center" style="margin-top:18px"><button class="btn sm" id="btnManage">管理玩家</button></div>
+  </section>
+
+  <section id="scrHome" class="screen" hidden>
+    <div class="topbar">
+      <button class="pchip" id="btnWho" aria-label="切换玩家"><span class="av" id="whoAv"></span><b id="whoName">玩家</b><span class="sw">切换</span></button>
+    </div>
+    <div class="hero compact">
+      <div class="mascot" id="mascot"></div>
+      <h1 class="logo">熊猫背单词</h1>
+      <p class="tag">选对释义的竹笋，熊猫就能吃掉它；选错了，四个竹笋会一起挥拳头。</p>
+    </div>
+    <div class="acts">
+      <button class="act" id="btnNotebook"><svg viewBox="0 0 40 40" aria-hidden="true"><rect x="8" y="4" width="26" height="32" rx="4" fill="#fff" stroke="#35621b" stroke-width="2.5"/><rect x="8" y="4" width="7" height="32" rx="3" fill="#e0554b" stroke="#35621b" stroke-width="2.5"/><path d="M19 13h10M19 19h10M19 25h6" stroke="#35621b" stroke-width="2.2" stroke-linecap="round"/></svg><b>错题本</b><span id="nbCount">还没有错题</span></button>
+      <button class="act pk" id="btnPK"><svg viewBox="0 0 40 40" aria-hidden="true"><circle cx="20" cy="20" r="17" fill="#f6c21c" stroke="#35621b" stroke-width="2.5"/><text x="20" y="25.5" text-anchor="middle" font-family="Baloo 2,Arial Rounded MT Bold,Arial,sans-serif" font-weight="800" font-size="15" fill="#35621b">VS</text></svg><b>PK 对战</b><span>2–5 人比正确率</span></button>
+    </div>
+    <div class="panel">
+      <div class="row">
+        <span class="lbl" id="lblMode">出题方式</span>
+        <div class="seg" role="radiogroup" aria-labelledby="lblMode" id="segMode">
+          <button role="radio" data-mode="en2zh" aria-checked="false">英 → 中</button>
+          <button role="radio" data-mode="zh2en" aria-checked="false">中 → 英</button>
+          <button role="radio" data-mode="mix" aria-checked="true">混合</button>
+        </div>
+      </div>
+      <div class="row">
+        <span class="lbl">声音</span>
+        <label class="tog"><input type="checkbox" id="optSpeak" checked><span></span>朗读单词</label>
+        <label class="tog"><input type="checkbox" id="optSfx" checked><span></span>音效</label>
+      </div>
+    </div>
+    <h2 class="sec">选一本单词书</h2>
+    <div class="books" id="books"></div>
+    <p class="foot">每关 10 个单词，每个单词 5 秒。关卡数由单词书的词量决定。<br>词库整理自开源词表：KyleBing/english-vocabulary（初中、高中、四级、六级、托福、SAT，BSD-3-Clause）、ECDICT（音标、雅思词表与 PET 释义，MIT）；PET 单词表依据剑桥 B1 Preliminary Vocabulary List。</p>
+  </section>
+
+  <section id="scrLevels" class="screen" hidden>
+    <div class="lv-head">
+      <button id="btnBack" class="icon-btn" aria-label="返回单词书"><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M12.5 4 6.5 10l6 6" stroke="#35621b" stroke-width="2.6" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+      <div style="min-width:0"><h2 id="lvTitle">单词书</h2><p id="lvSub"></p></div>
+    </div>
+    <div class="lv-actions">
+      <button id="btnContinue" class="btn primary">开始第 1 关</button>
+      <button id="btnReview" class="btn">错题本</button>
+    </div>
+    <div class="chips" id="chips" aria-label="关卡分组"></div>
+    <div class="grid" id="grid"></div>
+  </section>
+
+  <section id="scrNotebook" class="screen" hidden>
+    <div class="lv-head">
+      <button id="nbBack" class="icon-btn" aria-label="返回"><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M12.5 4 6.5 10l6 6" stroke="#35621b" stroke-width="2.6" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+      <span class="av" id="nbAv"></span>
+      <div style="min-width:0"><h2>错题本</h2><p id="nbSub"></p></div>
+    </div>
+    <div class="chips" id="nbBooks" aria-label="按单词书筛选"></div>
+    <div class="tools">
+      <div class="seg sm" role="radiogroup" aria-label="排序" id="nbSort">
+        <button role="radio" data-sort="recent" aria-checked="true">最近答错</button>
+        <button role="radio" data-sort="count" aria-checked="false">错得最多</button>
+      </div>
+      <span class="grow"></span>
+      <button class="btn sm primary" id="nbReview">复习这些词</button>
+    </div>
+    <div class="tools">
+      <button class="btn sm" id="nbCsv" hidden>导出表格 .csv</button>
+      <button class="btn sm" id="nbTxt" hidden>导出文本 .txt</button>
+      <button class="btn sm" id="nbCopy">复制全部</button>
+    </div>
+    <p class="hint" id="nbHint"></p>
+    <ul class="nb-list" id="nbList"></ul>
+  </section>
+
+  <section id="scrPk" class="screen" hidden>
+    <div class="lv-head">
+      <button id="pkBack" class="icon-btn" aria-label="返回"><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M12.5 4 6.5 10l6 6" stroke="#35621b" stroke-width="2.6" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+      <div style="min-width:0"><h2>PK 对战</h2><p>大家答同一组题，比正确率；正确率一样比用时。</p></div>
+    </div>
+    <button class="btn primary" id="pkNew" style="width:100%">新建一局</button>
+    <p class="hint" id="pkNeed" hidden>至少需要 2 位玩家才能 PK。<button class="btn sm" id="pkAddPlayer" style="margin-left:6px">添加玩家</button></p>
+    <h2 class="sec" id="pkListT">对局记录</h2>
+    <div class="pk-list" id="pkList"></div>
+  </section>
+
+  <section id="scrPkNew" class="screen" hidden>
+    <div class="lv-head">
+      <button id="pnBack" class="icon-btn" aria-label="返回"><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M12.5 4 6.5 10l6 6" stroke="#35621b" stroke-width="2.6" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+      <div style="min-width:0"><h2>新建 PK</h2><p>每人答完全相同的题目</p></div>
+    </div>
+    <div class="panel">
+      <div class="form-row"><span class="lbl">单词书</span><div class="bookpick" id="pnBooks"></div></div>
+      <div class="form-row"><span class="lbl" id="pnStartL">从第几关开始</span>
+        <div class="stepper"><button type="button" id="pnMinus" aria-label="减一关">−</button><input id="pnStart" type="number" inputmode="numeric" min="1" value="1" aria-labelledby="pnStartL"><button type="button" id="pnPlus" aria-label="加一关">+</button><span id="pnMax"></span></div></div>
+      <div class="form-row"><span class="lbl" id="pnCountL">比几关</span>
+        <div class="seg" role="radiogroup" aria-labelledby="pnCountL" id="pnCount">
+          <button role="radio" data-n="1" aria-checked="false">1 关</button><button role="radio" data-n="2" aria-checked="false">2 关</button><button role="radio" data-n="3" aria-checked="true">3 关</button><button role="radio" data-n="5" aria-checked="false">5 关</button>
+        </div></div>
+      <div class="form-row"><span class="lbl" id="pnModeL">出题方式</span>
+        <div class="seg" role="radiogroup" aria-labelledby="pnModeL" id="pnMode">
+          <button role="radio" data-mode="en2zh" aria-checked="false">英 → 中</button><button role="radio" data-mode="zh2en" aria-checked="false">中 → 英</button><button role="radio" data-mode="mix" aria-checked="true">混合</button>
+        </div></div>
+      <div class="form-row"><span class="lbl">参赛玩家（2–5 人）</span><div class="who" id="pnWho"></div></div>
+      <p class="summary" id="pnSum"></p>
+      <p class="err" id="pnErr" hidden></p>
+    </div>
+    <button class="btn primary" id="pnGo" style="width:100%;margin-top:16px">开始 PK</button>
+  </section>
+
+  <section id="scrPkMatch" class="screen" hidden>
+    <div class="lv-head">
+      <button id="pmBack" class="icon-btn" aria-label="返回对局列表"><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M12.5 4 6.5 10l6 6" stroke="#35621b" stroke-width="2.6" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+      <div style="min-width:0"><h2 id="pmTitle">PK</h2><p id="pmSub"></p></div>
+    </div>
+    <div id="pmWinner"></div>
+    <ul class="board" id="pmBoard"></ul>
+    <p class="hint">轮到谁就点谁的「开始」。中途退出的话，没答的题算错。</p>
+    <div class="tools">
+      <button class="btn sm primary" id="pmNext">再比下一组</button>
+      <span class="grow"></span>
+      <button class="btn sm" id="pmDel">删除这局</button>
+    </div>
+  </section>
+
+  <div id="ovPlayer" class="overlay" hidden>
+    <form class="card" id="pf" role="dialog" aria-modal="true" aria-labelledby="pfTitle" novalidate>
+      <h2 id="pfTitle">新玩家</h2>
+      <div class="pf-av av" id="pfAv"></div>
+      <label class="field"><span>名字</span><input id="pfName" maxlength="8" autocomplete="off" placeholder="例如：小明"></label>
+      <div class="swatches" id="pfColors" role="radiogroup" aria-label="头像颜色"></div>
+      <p class="err" id="pfErr" hidden></p>
+      <div class="btns inline"><button type="button" class="btn" id="pfCancel">取消</button><button type="submit" class="btn primary">保存</button></div>
+      <button type="button" class="btn danger" id="pfDel" hidden>删除这个玩家</button>
+    </form>
+  </div>
+
+  <div id="ovHand" class="overlay" hidden>
+    <div class="card hand" role="dialog" aria-modal="true" aria-labelledby="handT">
+      <span class="av" id="handAv"></span>
+      <h2 id="handT">轮到你了</h2>
+      <p id="handSub"></p>
+      <ul><li>每个词 5 秒，没选也算错</li><li>其他人答的是同一批题目，别偷看哦</li><li>中途退出的话，没答的题都算错</li></ul>
+      <div class="btns"><button class="btn primary" id="handGo">准备好了，开始</button><button class="btn" id="handBack">等一下</button></div>
+    </div>
+  </div>
+
+  <div id="ovStep" class="overlay" hidden>
+    <div class="card" role="dialog" aria-modal="true" aria-labelledby="stepT">
+      <span class="av hudav" id="stepAv" style="width:64px;height:64px;display:block;margin:0 auto 6px"></span>
+      <h2 id="stepT">第 1 关完成</h2>
+      <div class="r-score" id="stepScore"></div>
+      <p id="stepMsg"></p>
+      <div class="btns"><button class="btn primary" id="stepGo">下一关</button></div>
+    </div>
+  </div>
+
+  <div id="ovCopy" class="overlay" hidden>
+    <div class="card" role="dialog" aria-modal="true" aria-labelledby="copyT">
+      <h2 id="copyT">复制错题</h2>
+      <p>这里没法直接复制，请长按或全选下面的文字后复制。</p>
+      <textarea class="copybox" id="copyBox" readonly></textarea>
+      <div class="btns"><button class="btn primary" id="copyClose">好了</button></div>
+    </div>
+  </div>
+
+  <div id="ovPause" class="overlay" hidden>
+    <div class="card" role="dialog" aria-modal="true" aria-labelledby="pauseT">
+      <h2 id="pauseT">暂停一下</h2>
+      <p id="pauseSub">熊猫在原地等你</p>
+      <div class="btns">
+        <button class="btn primary" id="btnResume">继续</button>
+        <button class="btn" id="btnRestart">重新开始本关</button>
+        <button class="btn" id="btnQuit">退出到选关</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="ovResult" class="overlay" hidden>
+    <div class="card" role="dialog" aria-modal="true" aria-labelledby="resT">
+      <div class="r-stars" id="rStars"></div>
+      <h2 id="resT">第 1 关完成</h2>
+      <div class="r-score" id="rScore"></div>
+      <p id="rMsg"></p>
+      <ul class="r-list" id="rList"></ul>
+      <div class="btns inline">
+        <button class="btn" id="btnAgain">再玩一次</button>
+        <button class="btn" id="btnToLevels">选关</button>
+        <button class="btn primary" id="btnNext">下一关</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="ovLoading" class="overlay" hidden>
+    <div class="card" role="status">
+      <div class="spin" id="spin"></div>
+      <h2 id="loadT">打开单词书…</h2>
+      <p id="loadMsg"></p>
+      <div class="btns" id="loadBtns" hidden><button class="btn primary" id="btnRetry">重试</button><button class="btn" id="btnLoadClose">返回</button></div>
+    </div>
+  </div>
+</div>
+<script>
+(() => {
+'use strict';
+const $ = (id) => document.getElementById(id);
+const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const rand = (a, b) => a + Math.random() * (b - a);
+const shuffle = (a, r = Math.random) => { for (let i = a.length - 1; i > 0; i--) { const j = (r() * (i + 1)) | 0; [a[i], a[j]] = [a[j], a[i]]; } return a; };
+
+const LIMIT = 5;          // seconds per word
+const PER_LEVEL = 10;     // words per level
+const CHAPTER = 50;       // levels per chip group
+
+const BOOKS = [
+  { id: 'junior', name: '初中英语', desc: '中考核心词汇', count: 1983, color: '#f0a04b' },
+  { id: 'senior', name: '高中英语', desc: '高考核心词汇', count: 3741, color: '#e76f51' },
+  { id: 'cet4', name: '大学四级', desc: 'CET-4 词汇', count: 4541, color: '#3f88c5' },
+  { id: 'cet6', name: '大学六级', desc: 'CET-6 词汇', count: 3991, color: '#2f4b7c' },
+  { id: 'sat', name: 'SAT', desc: '美国大学入学考试', count: 4463, color: '#7a5195' },
+  { id: 'pet', name: 'PET', desc: '剑桥 B1 Preliminary', count: 3045, color: '#1f9e89' },
+  { id: 'toefl', name: '托福 TOEFL', desc: 'TOEFL iBT 词汇', count: 10364, color: '#c0392b' },
+  { id: 'ielts', name: '雅思 IELTS', desc: 'IELTS 核心词汇', count: 5023, color: '#d4a017' },
+];
+const bookMeta = (id) => BOOKS.find((b) => b.id === id);
+const levelCount = (b) => Math.ceil(b.count / PER_LEVEL);
+
+/* ---------------- storage: up to 5 local players (per-device) ---------------- */
+const KEY = 'panda-vocab-v2', KEY_OLD = 'panda-vocab-v1';
+const MAX_PLAYERS = 5;
+const PCOLORS = ['#e76f51', '#3f88c5', '#8e5bb5', '#1f9e89', '#e0a100'];
+let S = { v: 2, mode: 'mix', speak: true, sfx: true, players: [], current: null, pk: [] };
+const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
+(function loadStore() {
+  try {
+    const raw = localStorage.getItem(KEY);
+    if (raw) { S = Object.assign(S, JSON.parse(raw)); return; }
+    const old = localStorage.getItem(KEY_OLD);
+    if (old) { // migrate single-player progress into a first profile
+      const o = JSON.parse(old);
+      S.mode = o.mode || S.mode; S.speak = o.speak !== false; S.sfx = o.sfx !== false;
+      const p = { id: uid(), name: '玩家1', color: PCOLORS[0], books: {}, wrong: {} };
+      for (const [bid, b] of Object.entries(o.books || {})) {
+        p.books[bid] = { stars: b.stars || {}, last: b.last || 0 };
+        (b.wrong || []).forEach((w) => { p.wrong[bid + '|' + w] = { b: bid, w, p: '', m: '', n: 1, t: Date.now(), pick: '' }; });
+      }
+      S.players = [p]; S.current = p.id;
+    }
+  } catch (e) { /* storage unavailable: play without saving */ }
+})();
+const save = () => { try { localStorage.setItem(KEY, JSON.stringify(S)); } catch (e) { /* ignore */ } };
+const player = (id) => S.players.find((p) => p.id === id) || null;
+const me = () => player(S.current);
+function bstate(bookId, p = me()) {
+  if (!p) return { stars: {}, last: 0 };
+  const b = p.books[bookId] || (p.books[bookId] = {}); b.stars = b.stars || {}; return b;
+}
+function addWrong(p, bookId, e, pick) {
+  if (!p) return;
+  const k = bookId + '|' + e[0], r = p.wrong[k];
+  if (r) { r.n++; r.t = Date.now(); r.pick = pick; r.p = e[1]; r.m = e[4]; }
+  else p.wrong[k] = { b: bookId, w: e[0], p: e[1], m: e[4], n: 1, t: Date.now(), pick };
+}
+function removeWrong(p, bookId, w) { if (p) delete p.wrong[bookId + '|' + w]; }
+function wrongList(p, bookId) {
+  if (!p) return [];
+  return Object.values(p.wrong).filter((r) => !bookId || r.b === bookId);
+}
+function avatarSVG(p) {
+  if (!p) return '';
+  const ch = esc(Array.from(p.name || '?')[0] || '?');
+  return `<svg viewBox="0 0 48 48" aria-hidden="true"><circle cx="11" cy="11" r="8" fill="#34343b" stroke="#25252b" stroke-width="2"/><circle cx="37" cy="11" r="8" fill="#34343b" stroke="#25252b" stroke-width="2"/><circle cx="24" cy="26" r="19" fill="${p.color}" stroke="#25252b" stroke-width="2.5"/><text x="24" y="33" text-anchor="middle" font-size="19" font-weight="800" fill="#fff" font-family="ZCOOL KuaiLe,PingFang SC,Microsoft YaHei,sans-serif">${ch}</text></svg>`;
+}
+
+/* ---------------- SVG art ---------------- */
+const INK = '#25252b', FUR = '#34343b', WH = '#fdfdf8';
+function pandaSVG() {
+  const legs = (pads) => `
+    <g class="legL"><ellipse cx="52" cy="151" rx="15" ry="12" fill="${FUR}" stroke="${INK}" stroke-width="3"/>${pads ? '<ellipse cx="52" cy="154" rx="7" ry="4" fill="#63636c"/>' : ''}</g>
+    <g class="legR"><ellipse cx="88" cy="151" rx="15" ry="12" fill="${FUR}" stroke="${INK}" stroke-width="3"/>${pads ? '<ellipse cx="88" cy="154" rx="7" ry="4" fill="#63636c"/>' : ''}</g>`;
+  const body = `<path d="M30 113 C30 89 48 79 70 79 C92 79 110 89 110 113 C110 137 94 151 70 151 C46 151 30 137 30 113Z" fill="${FUR}" stroke="${INK}" stroke-width="3"/>`;
+  const ears = `<circle cx="29" cy="25" r="16" fill="${FUR}" stroke="${INK}" stroke-width="3"/><circle cx="111" cy="25" r="16" fill="${FUR}" stroke="${INK}" stroke-width="3"/>`;
+  const head = `<ellipse cx="70" cy="58" rx="48" ry="42" fill="${WH}" stroke="${INK}" stroke-width="3"/>`;
+  const shadow = `<ellipse cx="70" cy="163" rx="42" ry="6" fill="rgba(40,64,20,.22)"/>`;
+  const back = `<svg class="pd pd-back" viewBox="0 0 140 170" aria-hidden="true">${shadow}${legs(false)}
+    <ellipse cx="33" cy="112" rx="12" ry="21" transform="rotate(14 33 112)" fill="${FUR}" stroke="${INK}" stroke-width="3"/>
+    <ellipse cx="107" cy="112" rx="12" ry="21" transform="rotate(-14 107 112)" fill="${FUR}" stroke="${INK}" stroke-width="3"/>
+    ${body}<path d="M45 126 C45 110 57 103 70 103 C83 103 95 110 95 126 C95 141 84 149 70 149 C56 149 45 141 45 126Z" fill="${WH}"/>
+    <g class="tail"><circle cx="70" cy="138" r="9" fill="${WH}" stroke="${INK}" stroke-width="2.5"/></g>
+    ${ears}${head}<path d="M52 27 Q70 20 88 27" stroke="#e2e2da" stroke-width="3" fill="none" stroke-linecap="round"/>
+    <path d="M40 80 Q70 96 100 80" stroke="#ebebe4" stroke-width="3" fill="none" stroke-linecap="round"/></svg>`;
+  const eyesOpen = `<circle cx="52" cy="60" r="5.2" fill="#0a0a0c"/><circle cx="53.9" cy="58" r="2" fill="#fff"/><circle cx="88" cy="60" r="5.2" fill="#0a0a0c"/><circle cx="89.9" cy="58" r="2" fill="#fff"/>`;
+  const happyEyes = `<path d="M45 63 Q51 55 57 63" stroke="#fff" stroke-width="3.2" fill="none" stroke-linecap="round"/><path d="M83 63 Q89 55 95 63" stroke="#fff" stroke-width="3.2" fill="none" stroke-linecap="round"/>`;
+  const cheeks = (o) => `<ellipse cx="39" cy="79" rx="7" ry="4.2" fill="#f6a3ae" opacity="${o}"/><ellipse cx="101" cy="79" rx="7" ry="4.2" fill="#f6a3ae" opacity="${o}"/>`;
+  const spiral = (x, y) => `<path d="M${x} ${y} m-1 0 a1.6 1.6 0 1 1 2.2 1.4 a3.6 3.6 0 1 1 -4.6 -3.6 a5.8 5.8 0 1 1 6.8 6.4" stroke="#fff" stroke-width="2.2" fill="none" stroke-linecap="round"/>`;
+  const front = `<svg class="pd pd-front" viewBox="0 0 140 170" aria-hidden="true">${shadow}${legs(true)}
+    <ellipse cx="34" cy="111" rx="12" ry="21" transform="rotate(20 34 111)" fill="${FUR}" stroke="${INK}" stroke-width="3"/>
+    <ellipse cx="106" cy="111" rx="12" ry="21" transform="rotate(-20 106 111)" fill="${FUR}" stroke="${INK}" stroke-width="3"/>
+    ${body}<ellipse cx="70" cy="123" rx="23" ry="22" fill="${WH}"/>
+    ${ears}<circle cx="29" cy="25" r="7" fill="#4a4a52"/><circle cx="111" cy="25" r="7" fill="#4a4a52"/>${head}
+    <ellipse cx="50" cy="62" rx="12.5" ry="15.5" transform="rotate(36 50 62)" fill="${FUR}"/>
+    <ellipse cx="90" cy="62" rx="12.5" ry="15.5" transform="rotate(-36 90 62)" fill="${FUR}"/>
+    <path d="M64 71 Q70 68 76 71 Q74.5 77 70 77 Q65.5 77 64 71Z" fill="${INK}"/>
+    <g class="face face-normal">${eyesOpen}<path d="M62 81 Q66 86 70 81 Q74 86 78 81" stroke="${INK}" stroke-width="2.6" fill="none" stroke-linecap="round"/></g>
+    <g class="face face-happy">${happyEyes}${cheeks(.75)}<path d="M61 80 Q70 94 79 80Z" fill="#7b2b2e" stroke="${INK}" stroke-width="2.4" stroke-linejoin="round"/><ellipse cx="70" cy="87" rx="4.5" ry="2.6" fill="#f07f8a"/></g>
+    <g class="face face-hurt"><path d="M45 55 L56 61 L45 67" stroke="#fff" stroke-width="3" fill="none" stroke-linecap="round" stroke-linejoin="round"/><path d="M95 55 L84 61 L95 67" stroke="#fff" stroke-width="3" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+      <path d="M60 85 Q63 80 66 85 Q69 90 72 85 Q75 80 78 85" stroke="${INK}" stroke-width="2.6" fill="none" stroke-linecap="round"/><path d="M112 44 q5 8 0 11 q-5 -3 0 -11z" fill="#9fd3f5" stroke="#4a8fc0" stroke-width="1.5"/></g>
+    <g class="face face-dizzy">${spiral(51, 61)}${spiral(89, 61)}<path d="M61 86 Q65 81 70 85 Q75 89 79 84" stroke="${INK}" stroke-width="2.6" fill="none" stroke-linecap="round"/></g>
+    <g class="face face-chew">${happyEyes}${cheeks(.95)}<ellipse cx="46" cy="80" rx="9" ry="7" fill="${WH}" opacity=".9"/><ellipse cx="94" cy="80" rx="9" ry="7" fill="${WH}" opacity=".9"/>
+      <ellipse class="chewm" cx="70" cy="84" rx="6" ry="4.5" fill="#7b2b2e" stroke="${INK}" stroke-width="2.2"/></g>
+  </svg>`;
+  return back + front;
+}
+function shootSVG() {
+  const O = '#4a7a27';
+  const eyes = (dy = 0) => `<ellipse cx="40" cy="${60 + dy}" rx="3.4" ry="4.4" fill="#26361a"/><circle cx="41.2" cy="${58.4 + dy}" r="1.3" fill="#fff"/><ellipse cx="60" cy="${60 + dy}" rx="3.4" ry="4.4" fill="#26361a"/><circle cx="61.2" cy="${58.4 + dy}" r="1.3" fill="#fff"/>`;
+  const blush = `<ellipse cx="30.5" cy="67" rx="5.5" ry="3.2" fill="#f19a9a" opacity=".85"/><ellipse cx="69.5" cy="67" rx="5.5" ry="3.2" fill="#f19a9a" opacity=".85"/>`;
+  return `<svg class="sh" viewBox="0 0 100 124" aria-hidden="true">
+    <ellipse cx="50" cy="118" rx="32" ry="5" fill="rgba(40,64,20,.25)"/>
+    <ellipse cx="37" cy="113" rx="10.5" ry="7" fill="#f2dba8" stroke="#7a6331" stroke-width="2.5"/><ellipse cx="63" cy="113" rx="10.5" ry="7" fill="#f2dba8" stroke="#7a6331" stroke-width="2.5"/>
+    <path d="M50 4 C60 18 86 44 88 78 C90 102 74 113 50 113 C26 113 10 102 12 78 C14 44 40 18 50 4Z" fill="#a3cf69" stroke="${O}" stroke-width="3" stroke-linejoin="round"/>
+    <path d="M13 81 C16 60 34 44 58 37 C48 55 44 80 48 112 C28 111 13 101 13 81Z" fill="#b8dc83" stroke="${O}" stroke-width="2.4" stroke-linejoin="round"/>
+    <path d="M87 79 C84 60 70 46 53 41 C62 58 64 84 57 112 C76 109 87 99 87 79Z" fill="#92c15a" stroke="${O}" stroke-width="2.4" stroke-linejoin="round"/>
+    <path d="M50 4 C44 16 38 26 33 39 C42 33 49 31 57 34 C59 22 55 12 50 4Z" fill="#8cbd52" stroke="${O}" stroke-width="2.4" stroke-linejoin="round"/>
+    <path d="M50 4 C57 14 63 25 66 37 C60 32 55 30 48 30" fill="#a9d474" stroke="${O}" stroke-width="2.4" stroke-linejoin="round"/>
+    <path d="M22 70 Q24 58 32 50" stroke="#d6eeb1" stroke-width="2.5" fill="none" stroke-linecap="round"/>
+    <g class="face face-normal">${eyes()}${blush}<path d="M45 66 Q50 71 55 66" stroke="#26361a" stroke-width="2.3" fill="none" stroke-linecap="round"/></g>
+    <g class="face face-angry"><path d="M33 51 L46 56" stroke="#26361a" stroke-width="3" stroke-linecap="round"/><path d="M67 51 L54 56" stroke="#26361a" stroke-width="3" stroke-linecap="round"/>${eyes(1)}
+      <ellipse cx="30.5" cy="67" rx="5.5" ry="3.2" fill="#ee6f6f" opacity=".9"/><ellipse cx="69.5" cy="67" rx="5.5" ry="3.2" fill="#ee6f6f" opacity=".9"/><path d="M43 71 Q50 64 57 71" stroke="#26361a" stroke-width="2.6" fill="none" stroke-linecap="round"/></g>
+    <g class="face face-sad"><path d="M34 54 L45 51" stroke="#26361a" stroke-width="2.4" stroke-linecap="round"/><path d="M66 54 L55 51" stroke="#26361a" stroke-width="2.4" stroke-linecap="round"/>${eyes(1)}${blush}
+      <path d="M44 71 Q50 66 56 71" stroke="#26361a" stroke-width="2.3" fill="none" stroke-linecap="round"/><path d="M36 66 q2 5 0 7 q-2 -2 0 -7z" fill="#9fd3f5"/></g>
+    <g class="face face-wow">${eyes(-1)}${blush}<ellipse cx="50" cy="69" rx="4" ry="5" fill="#7b2b2e" stroke="#26361a" stroke-width="2"/></g>
+  </svg>`;
+}
+const FIST_SVG = `<svg viewBox="0 0 32 32" aria-hidden="true"><path d="M6 8 Q6 4 11 4 L22 4 Q29 4 29 11 L29 21 Q29 28 22 28 L11 28 Q6 28 6 23Z" fill="#f2dba8" stroke="#7a6331" stroke-width="2.5"/>
+  <path d="M20 5 L20 27 M13 10 L28 10 M13 16.5 L28 16.5 M13 22.5 L28 22.5" stroke="#7a6331" stroke-width="1.6" fill="none" opacity=".6"/><path d="M6 12 Q14 12 14 17 Q14 21 6 21" fill="#e9c98c" stroke="#7a6331" stroke-width="2"/></svg>`;
+const STAR_SVG = `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 1.8l3 6.4 7 .8-5.2 4.8 1.5 6.9L12 17.2l-6.3 3.5 1.5-6.9L2 9l7-.8z" fill="#ffd43b" stroke="#b07a00" stroke-width="1.6" stroke-linejoin="round"/></svg>`;
+const BIGSTAR = (on) => `<svg class="${on ? 'on' : ''}" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 1.8l3 6.4 7 .8-5.2 4.8 1.5 6.9L12 17.2l-6.3 3.5 1.5-6.9L2 9l7-.8z" fill="${on ? '#ffd43b' : '#e3e7da'}" stroke="${on ? '#b07a00' : '#b9c2ab'}" stroke-width="1.4" stroke-linejoin="round"/></svg>`;
+
+/* ---------------- audio ---------------- */
+let AC = null;
+function ac() {
+  if (!S.sfx) return null;
+  try { if (!AC) AC = new (window.AudioContext || window.webkitAudioContext)(); if (AC.state === 'suspended') AC.resume(); } catch (e) { AC = null; }
+  return AC;
+}
+function tone(f, d, type = 'sine', v = .18, delay = 0, f2) {
+  const a = ac(); if (!a) return;
+  const t = a.currentTime + delay, o = a.createOscillator(), g = a.createGain();
+  o.type = type; o.frequency.setValueAtTime(f, t); if (f2) o.frequency.exponentialRampToValueAtTime(f2, t + d);
+  g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(v, t + .012); g.gain.exponentialRampToValueAtTime(0.0001, t + d);
+  o.connect(g).connect(a.destination); o.start(t); o.stop(t + d + .02);
+}
+function noise(d, v = .2, freq = 1200, delay = 0, q = 1) {
+  const a = ac(); if (!a) return;
+  const t = a.currentTime + delay, n = Math.max(1, Math.floor(a.sampleRate * d)), buf = a.createBuffer(1, n, a.sampleRate), ch = buf.getChannelData(0);
+  for (let i = 0; i < n; i++) ch[i] = (Math.random() * 2 - 1) * (1 - i / n);
+  const s = a.createBufferSource(), fl = a.createBiquadFilter(), g = a.createGain();
+  s.buffer = buf; fl.type = 'bandpass'; fl.frequency.value = freq; fl.Q.value = q; g.gain.value = v;
+  s.connect(fl).connect(g).connect(a.destination); s.start(t);
+}
+const SFX = {
+  tap() { tone(660, .07, 'triangle', .1); },
+  good() { tone(784, .12, 'triangle', .16); tone(1175, .2, 'triangle', .16, .09); },
+  chomp() { noise(.09, .35, 900, 0, 1.5); tone(180, .08, 'square', .05); },
+  bad() { tone(330, .14, 'sawtooth', .07, 0, 220); },
+  punch() { tone(150, .12, 'sine', .35, 0, 55); noise(.07, .25, 500, 0, .8); },
+  whoosh() { noise(.45, .18, 700, 0, .6); },
+  dizzy() { for (let i = 0; i < 4; i++) tone(1500 + (i % 2) * 300, .09, 'sine', .07, i * .12); },
+  tick() { tone(1000, .04, 'square', .04); },
+  win() { [523, 659, 784, 1047].forEach((f, i) => tone(f, .22, 'triangle', .16, i * .11)); },
+  meh() { [523, 440, 392].forEach((f, i) => tone(f, .25, 'triangle', .13, i * .14)); },
+};
+
+/* ---------------- speech ---------------- */
+let voice = null, voiceZh = null;
+function pickVoice() {
+  try {
+    const all = speechSynthesis.getVoices();
+    const vs = all.filter((v) => /^en[-_]/i.test(v.lang));
+    voice = vs.find((v) => /en[-_]US/i.test(v.lang) && /Samantha|Google|Microsoft|Natural/i.test(v.name)) || vs.find((v) => /en[-_]US/i.test(v.lang)) || vs[0] || null;
+    const zs = all.filter((v) => /^(zh|cmn)/i.test(v.lang));
+    voiceZh = zs.find((v) => /(zh|cmn)[-_](CN|Hans)/i.test(v.lang) && /Tingting|Ting-Ting|Google|Microsoft|Xiaoxiao|Natural/i.test(v.name)) || zs.find((v) => /(zh|cmn)[-_](CN|Hans)/i.test(v.lang)) || zs[0] || null;
+  } catch (e) { voice = voiceZh = null; }
+}
+if ('speechSynthesis' in window) { pickVoice(); try { speechSynthesis.addEventListener('voiceschanged', pickVoice); } catch (e) { /* old browsers */ } }
+function speak(text, force, zh) {
+  if ((!S.speak && !force) || !('speechSynthesis' in window)) return;
+  try { speechSynthesis.cancel(); const u = new SpeechSynthesisUtterance(text); u.lang = zh ? 'zh-CN' : 'en-US'; u.rate = zh ? 1 : .88; const v = zh ? voiceZh : voice; if (v) u.voice = v; speechSynthesis.speak(u); } catch (e) { /* ignore */ }
+}
+
+/* ---------------- stage / canvas ---------------- */
+const stage = $('stage'), cv = $('bg'), ctx = cv.getContext('2d'), world = $('world'), fx = $('fx');
+const G = {
+  W: 400, H: 760, dpr: 1, cam: 0, scroll: 26, time: 0, paused: false, mode: 'menu',
+  tweens: [], timers: [], shoots: [], panda: null, phase: 'idle', askT: 0, lastTick: 0,
+};
+
+function layout() {
+  const r = stage.getBoundingClientRect();
+  G.W = r.width; G.H = r.height; G.dpr = Math.min(2, window.devicePixelRatio || 1);
+  cv.width = Math.round(G.W * G.dpr); cv.height = Math.round(G.H * G.dpr);
+  ctx.setTransform(G.dpr, 0, 0, G.dpr, 0, 0);
+  const s = Math.max(.74, Math.min(1.2, Math.min(G.W / 400, G.H / 760)));
+  G.PW = Math.round(116 * s); G.PH = Math.round(G.PW * 170 / 140);
+  G.SW = Math.floor(Math.min((G.W - 20) / 4 - 6, 112 * s)); G.SH = Math.round(G.SW * 1.24);
+  stage.style.setProperty('--pw', G.PW + 'px'); stage.style.setProperty('--ph', G.PH + 'px');
+  stage.style.setProperty('--sw', G.SW + 'px'); stage.style.setProperty('--sh', G.SH + 'px');
+  G.homeX = G.W / 2; G.homeY = G.H - Math.max(18, G.H * .035);
+  let top = 170;
+  if (!$('hud').hidden) { const tr = $('timer').getBoundingClientRect(); top = tr.bottom - r.top; }
+  G.yTop = top + 16 + G.SH;
+  G.yNear = G.homeY - G.PH - 8;
+  if (G.yNear - G.yTop < 120) G.yTop = G.yNear - 120;
+  G.speed = (G.yNear - G.yTop) / LIMIT;
+  if (G.mode === 'game') G.scroll = G.speed;
+  const P = G.panda;
+  if (P && P.home) { P.x = G.homeX; P.y = G.homeY; }
+}
+
+function hash(n) { const x = Math.sin(n * 127.1 + 311.7) * 43758.5453; return x - Math.floor(x); }
+function pathCx(wy) { return G.W / 2 + Math.sin(wy * .0043) * G.W * .07 + Math.sin(wy * .011) * G.W * .02; }
+function drawBg() {
+  const c = ctx, W = G.W, H = G.H, cam = G.cam;
+  c.fillStyle = '#cfe8ab'; c.fillRect(0, 0, W, H);
+  // soft ground patches
+  const T = 64, k0 = Math.floor((-T - cam) / T), k1 = Math.ceil((H + T - cam) / T);
+  for (let k = k0; k <= k1; k++) {
+    const y = k * T + cam;
+    if (hash(k * 1.7) > .55) { c.fillStyle = 'rgba(176,214,132,.55)'; c.beginPath(); c.ellipse(hash(k * 2.3) * W, y, 40 + hash(k) * 50, 16 + hash(k * 3) * 12, 0, 0, Math.PI * 2); c.fill(); }
+  }
+  // path
+  const pw = W * .21;
+  c.beginPath();
+  for (let y = -24; y <= H + 24; y += 24) { const x = pathCx(y - cam) - pw; y === -24 ? c.moveTo(x, y) : c.lineTo(x, y); }
+  for (let y = H + 24; y >= -24; y -= 24) c.lineTo(pathCx(y - cam) + pw, y);
+  c.closePath(); c.fillStyle = '#ecdfbb'; c.fill(); c.lineWidth = 4; c.strokeStyle = '#d9c696'; c.stroke();
+  // decorations per tile
+  for (let k = k0; k <= k1; k++) {
+    const y0 = k * T + cam;
+    for (let j = 0; j < 3; j++) {
+      const h = hash(k * 13.1 + j * 7.3), x = hash(k * 5.9 + j * 3.1) * W, y = y0 + hash(k * 2.9 + j) * T;
+      const cx = pathCx(y - cam), onPath = Math.abs(x - cx) < pw - 6;
+      if (onPath) {
+        if (h > .72) { c.fillStyle = '#cbb886'; c.beginPath(); c.ellipse(x, y, 4 + h * 3, 3 + h * 2, h * 3, 0, Math.PI * 2); c.fill(); }
+        else if (h < .07) { drawLeaf(c, x, y, 12, h * 40, '#b9c77a'); }
+      } else if (Math.abs(x - cx) > pw + 8) {
+        if (h > .45) { // grass tuft
+          c.strokeStyle = '#86b857'; c.lineWidth = 2; c.lineCap = 'round'; c.beginPath();
+          for (let b = -1; b <= 1; b++) { c.moveTo(x + b * 3, y); c.quadraticCurveTo(x + b * 5, y - 6, x + b * 7, y - 10 - (b === 0 ? 3 : 0)); }
+          c.stroke();
+        } else if (h < .1) { // flower
+          const col = ['#fff7f0', '#ffd6e0', '#fff1a8'][Math.floor(h * 30) % 3];
+          c.fillStyle = col; for (let p = 0; p < 5; p++) { const a = p * 1.2566; c.beginPath(); c.arc(x + Math.cos(a) * 3.2, y + Math.sin(a) * 3.2, 2.6, 0, Math.PI * 2); c.fill(); }
+          c.fillStyle = '#f4b41a'; c.beginPath(); c.arc(x, y, 2, 0, Math.PI * 2); c.fill();
+        }
+      }
+    }
+  }
+  // bamboo stalks at both edges: far (parallax) then near
+  drawStalks(c, [[-4, 12], [W - 16, 12]], cam * .7, '#b9dc97', '#9cc977', .9, 71);
+  drawStalks(c, [[4, 16], [W - 22, 18]], cam, '#7fb556', '#5e9139', 1, 13);
+}
+function drawLeaf(c, x, y, len, rot, col) {
+  c.save(); c.translate(x, y); c.rotate(rot); c.fillStyle = col; c.beginPath();
+  c.moveTo(0, 0); c.quadraticCurveTo(len * .5, -len * .28, len, 0); c.quadraticCurveTo(len * .5, len * .28, 0, 0); c.fill(); c.restore();
+}
+function drawStalks(c, cols, off, fill, dark, alpha, seed) {
+  c.save(); c.globalAlpha = alpha;
+  const N = 110;
+  cols.forEach(([x, w], si) => {
+    c.fillStyle = fill; c.fillRect(x, 0, w, G.H);
+    c.fillStyle = 'rgba(255,255,255,.28)'; c.fillRect(x + w * .22, 0, w * .16, G.H);
+    const n0 = Math.floor((-N - off) / N), n1 = Math.ceil((G.H + N - off) / N);
+    for (let n = n0; n <= n1; n++) {
+      const y = n * N + off + (si ? N * .45 : 0);
+      c.fillStyle = dark; c.fillRect(x - 1, y - 2, w + 2, 4);
+      const h = hash(n * 3.3 + si * 17 + seed);
+      if (h > .35) {
+        const dir = si ? -1 : 1, bx = si ? x : x + w;
+        drawLeaf(c, bx, y - 1, 30 + h * 14, dir > 0 ? -.45 - h * .3 : Math.PI + .45 + h * .3, dark);
+        if (h > .6) drawLeaf(c, bx, y + 2, 24 + h * 10, dir > 0 ? .15 : Math.PI - .15, fill === '#7fb556' ? '#6ea447' : '#a9d386');
+      }
+    }
+  });
+  c.restore();
+}
+
+/* ---------------- tweens & timers (game-time, so pause freezes them) ---------------- */
+const EASE = {
+  lin: (t) => t, out: (t) => 1 - (1 - t) * (1 - t), in: (t) => t * t,
+  inOut: (t) => (t < .5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2),
+  back: (t) => { const c1 = 1.70158, c3 = c1 + 1; return 1 + c3 * Math.pow(t - 1, 3) + c1 * Math.pow(t - 1, 2); },
+};
+function tween(obj, to, dur, ease = 'out', done, upd) {
+  const from = {}; for (const k in to) from[k] = obj[k];
+  G.tweens.push({ obj, from, to, dur, t: 0, ease: EASE[ease], done, upd });
+}
+function updTweens(dt) {
+  const list = G.tweens.slice();
+  for (const tw of list) {
+    tw.t += dt; const p = Math.min(1, tw.t / tw.dur), e = tw.ease(p);
+    for (const k in tw.to) tw.obj[k] = tw.from[k] + (tw.to[k] - tw.from[k]) * e;
+    if (tw.upd) tw.upd(p);
+    if (p >= 1) { const i = G.tweens.indexOf(tw); if (i >= 0) G.tweens.splice(i, 1); if (tw.done) tw.done(); }
+  }
+}
+function after(sec, fn) { G.timers.push({ at: G.time + sec, fn }); }
+function runTimers() {
+  if (!G.timers.length) return;
+  const due = G.timers.filter((t) => t.at <= G.time);
+  if (!due.length) return;
+  G.timers = G.timers.filter((t) => t.at > G.time);
+  due.sort((a, b) => a.at - b.at).forEach((t) => t.fn());
+}
+
+/* ---------------- sprites ---------------- */
+function makePanda() {
+  const el = document.createElement('div');
+  el.className = 'sprite panda walk'; el.dataset.face = 'normal';
+  el.innerHTML = `<div class="p-rot"><div class="p-bob">${pandaSVG()}</div></div>` + `<i class="p-star">${STAR_SVG}</i>`.repeat(3);
+  world.appendChild(el);
+  return { el, rot: el.querySelector('.p-rot'), stars: [...el.querySelectorAll('.p-star')], x: G.homeX, y: G.homeY, r: 0, hop: 0, sx: 1, sy: 1, home: true, descend: false, dizzy: false, sway: 0, shake: 0 };
+}
+function pView(front) { G.panda.el.classList.toggle('front', front); }
+function pFace(f) { G.panda.el.dataset.face = f; }
+function pWalk(on) { G.panda.el.classList.toggle('walk', on); }
+
+function makeShoot(i, entry, dir, correct) {
+  const el = document.createElement('button');
+  el.className = 'sprite shoot'; el.dataset.face = 'normal'; el.type = 'button';
+  const text = dir === 'en2zh' ? entry[3] : entry[0];
+  el.setAttribute('aria-label', `选项 ${i + 1}：${text}`);
+  el.innerHTML = `<div class="arm"><i class="stick"></i><i class="fist">${FIST_SVG}</i></div>${shootSVG()}<span class="lab"><span class="lab-t${dir === 'zh2en' ? ' en' : ''}${/\s/.test(text) ? ' wrap' : ''}"${dir === 'zh2en' ? ' lang="en"' : ''}>${esc(text)}</span></span><span class="key" aria-hidden="true">${i + 1}</span>`;
+  el.addEventListener('pointerdown', (e) => { e.preventDefault(); answer(i); });
+  el.addEventListener('click', (e) => { if (e.detail === 0) answer(i); }); // keyboard activation
+  world.appendChild(el);
+  const s = { el, i, entry, correct, x: 0, y: 0, sc: 1, sy: 1, rot: 0, descend: true, follow: false, gone: false,
+    arm: el.querySelector('.arm'), stick: el.querySelector('.stick'), fist: el.querySelector('.fist'), punch: null };
+  return s;
+}
+function fitLabel(s) {
+  const lab = s.el.querySelector('.lab'), t = s.el.querySelector('.lab-t');
+  const maxW = lab.clientWidth - 8, maxH = lab.clientHeight - 2;
+  const en = t.classList.contains('en');
+  let size = Math.round(G.SW * (en ? .22 : .21));
+  t.style.fontSize = size + 'px';
+  let guard = 40;
+  while (guard-- > 0 && size > 9 && (t.scrollWidth > maxW || t.scrollHeight > maxH)) { size -= 1; t.style.fontSize = size + 'px'; }
+}
+
+function render() {
+  const P = G.panda;
+  if (P) {
+    const shakeX = P.shake ? Math.sin(G.time * 90) * P.shake : 0;
+    P.el.style.transform = `translate3d(${(P.x - G.PW / 2 + shakeX).toFixed(1)}px,${(P.y - G.PH + P.hop).toFixed(1)}px,0)`;
+    const sway = P.dizzy ? Math.sin(G.time * 7) * 6 : 0;
+    P.rot.style.transform = `rotate(${(P.r + sway).toFixed(1)}deg) scale(${P.sx.toFixed(3)},${P.sy.toFixed(3)})`;
+    if (P.dizzy) {
+      const cx = G.PW / 2, cy = G.PH * .12;
+      P.stars.forEach((st, k) => {
+        const a = G.time * 5 + k * 2.094;
+        const x = cx + Math.cos(a) * G.PW * .42, y = cy + Math.sin(a) * G.PH * .09;
+        st.style.transform = `translate(${x.toFixed(1)}px,${y.toFixed(1)}px) scale(${(.8 + .25 * Math.sin(a)).toFixed(2)})`;
+        st.style.zIndex = Math.sin(a) > 0 ? 2 : -1;
+      });
+    }
+  }
+  for (const s of G.shoots) {
+    s.el.style.transform = `translate3d(${(s.x - G.SW / 2).toFixed(1)}px,${(s.y - G.SH).toFixed(1)}px,0) scale(${s.sc.toFixed(3)},${(s.sc * s.sy).toFixed(3)}) rotate(${s.rot.toFixed(1)}deg)`;
+    if (s.punch) {
+      const p = s.punch, ext = p.ext;
+      s.arm.style.transform = `rotate(${p.ang}rad)`;
+      s.stick.style.width = (10 + ext) + 'px';
+      s.fist.style.transform = `translateX(${(ext).toFixed(1)}px) scale(${(1 + .15 * p.k).toFixed(2)})`;
+    }
+  }
+}
+
+/* ---------------- main loop ---------------- */
+let lastTs = 0;
+function frame(ts) {
+  const dt = Math.min(.05, Math.max(0, (ts - lastTs) / 1000 || 0)); lastTs = ts;
+  if (!G.paused) {
+    G.time += dt;
+    G.cam += G.scroll * dt;
+    runTimers();
+    updTweens(dt);
+    update(dt);
+  }
+  drawBg();
+  render();
+  requestAnimationFrame(frame);
+}
+
+function update(dt) {
+  const P = G.panda;
+  if (P && P.descend) P.y += G.speed * dt;
+  for (const s of G.shoots) {
+    if (s.follow && P) { s.x = P.x; s.y = P.y + P.hop - G.PH * .1; }
+    else if (s.descend) s.y += G.speed * dt;
+    if (s.punch) {
+      const p = s.punch; const t = G.time - p.start;
+      if (t < 0) p.ext = 0, p.k = 0;
+      else {
+        const cyc = .34, n = 3, idx = Math.floor(t / cyc);
+        if (idx >= n) { p.ext = 0; p.k = 0; }
+        else {
+          const u = (t - idx * cyc) / cyc;
+          const k = u < .38 ? EASE.out(u / .38) : u < .58 ? 1 : 1 - (u - .58) / .42;
+          p.k = k; p.ext = p.reach * k;
+          if (u >= .38 && p.hit !== idx) { p.hit = idx; onPunchHit(s); }
+        }
+      }
+    }
+  }
+  if (G.phase === 'ask') {
+    G.askT += dt;
+    const left = Math.max(0, LIMIT - G.askT);
+    const f = left / LIMIT;
+    $('timerFill').style.transform = `scaleX(${f.toFixed(4)})`;
+    const tm = $('timer'); tm.classList.toggle('hurry', left < 1.5); tm.classList.toggle('mid', left >= 1.5 && left < 3);
+    const sec = Math.ceil(left);
+    if (sec <= 3 && sec !== G.lastTick && left > 0) { G.lastTick = sec; SFX.tick(); }
+    if (G.askT >= LIMIT) answer(-1);
+  }
+}
+
+/* ---------------- effects ---------------- */
+function pow(x, y) {
+  const el = document.createElement('div'); el.className = 'pow';
+  el.style.left = x + 'px'; el.style.top = y + 'px';
+  const txt = ['砰!', '啪!', '嘭!', '咚!'][(Math.random() * 4) | 0];
+  el.innerHTML = `<svg viewBox="0 0 64 58" aria-hidden="true"><path d="M32 2l6 13 13-7-3 14 14 4-12 8 9 11-14-1 1 14-11-9-8 12-3-14-13 5 6-13L2 25l14-4-5-13 13 7z" fill="#ffd43b" stroke="#e0554b" stroke-width="2.5" stroke-linejoin="round"/></svg><b>${txt}</b>`;
+  fx.appendChild(el); after(.45, () => el.remove());
+}
+function crumbs(x, y, n = 7) {
+  for (let i = 0; i < n; i++) {
+    const el = document.createElement('i'); el.className = 'crumb';
+    el.style.left = x + rand(-6, 6) + 'px'; el.style.top = y + rand(-4, 4) + 'px';
+    el.style.setProperty('--dx', rand(-46, 46).toFixed(0) + 'px'); el.style.setProperty('--dy', rand(-50, 10).toFixed(0) + 'px');
+    el.style.background = Math.random() < .4 ? '#f2dba8' : '#9ccd5f';
+    fx.appendChild(el); after(.65, () => el.remove());
+  }
+}
+function floatText(x, y, text, bad) {
+  const el = document.createElement('div'); el.className = 'float' + (bad ? ' bad' : '');
+  el.style.left = x + 'px'; el.style.top = y + 'px'; el.textContent = text;
+  fx.appendChild(el); after(1.05, () => el.remove());
+}
+
+/* ---------------- questions ---------------- */
+function mulberry32(a) {
+  return function () { a |= 0; a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; };
+}
+function levelEntries(book, idx) {
+  const w = book.words.slice(idx * PER_LEVEL, idx * PER_LEVEL + PER_LEVEL);
+  const have = new Set(w.map((e) => e[0])), r = mulberry32(idx * 7919 + 17);
+  let guard = 300;
+  while (w.length < PER_LEVEL && guard-- > 0 && book.words.length > PER_LEVEL) {
+    const e = book.words[(r() * book.words.length) | 0];
+    if (!have.has(e[0])) { have.add(e[0]); w.push(e); }
+  }
+  return w;
+}
+function distractors(entry, pool, n, r) {
+  const out = [], usedW = new Set([entry[0].toLowerCase()]), usedM = new Set([entry[3]]);
+  const clash = (c) => usedW.has(c[0].toLowerCase()) || usedM.has(c[3]) || entry[4].includes(c[3]) || c[4].includes(entry[3]) || out.some((o) => o[4].includes(c[3]) || c[4].includes(o[3]));
+  for (let tries = 0; tries < 400 && out.length < n; tries++) {
+    const c = pool[(r() * pool.length) | 0];
+    if (clash(c)) continue;
+    if (tries < 160 && c[2] !== entry[2]) continue; // prefer the same part of speech
+    if (tries < 80 && entry[0].includes(' ') !== c[0].includes(' ')) continue;
+    out.push(c); usedW.add(c[0].toLowerCase()); usedM.add(c[3]);
+  }
+  return out;
+}
+function makeQuestion(entry, mode, r) {
+  const dir = mode === 'mix' ? (r() < .5 ? 'en2zh' : 'zh2en') : mode;
+  const opts = shuffle([entry, ...distractors(entry, G.book.words, 3, r)], r);
+  return { entry, dir, opts, ans: opts.indexOf(entry) };
+}
+const optText = (q, i) => (q.dir === 'en2zh' ? q.opts[i][3] : q.opts[i][0]);
+
+/* ---------------- runs: normal level / notebook review / PK ---------------- */
+function clearWorld() {
+  G.tweens = []; G.timers = []; G.shoots = []; G.panda = null; G.phase = 'idle';
+  world.innerHTML = ''; fx.innerHTML = '';
+}
+const SCREENS = { players: 'scrPlayers', home: 'scrHome', levels: 'scrLevels', notebook: 'scrNotebook', pk: 'scrPk', pknew: 'scrPkNew', pkmatch: 'scrPkMatch' };
+function showScreen(name) {
+  for (const [k, id] of Object.entries(SCREENS)) { $(id).hidden = k !== name; if (k === name) $(id).scrollTop = 0; }
+  $('hud').hidden = name !== 'game';
+  G.mode = name;
+  if (name !== 'game') G.scroll = 26;
+}
+function hideOverlays() { ['ovResult', 'ovPause', 'ovStep', 'ovHand'].forEach((id) => { $(id).hidden = true; }); }
+
+async function startRun(run) {
+  const book = await loadBook(run.bookId); if (!book) return;
+  run.li = run.li || 0; run.stats = run.stats || { c: 0, n: 0, t: 0 };
+  G.book = book; G.run = run;
+  beginLevel();
+}
+function beginLevel() {
+  const run = G.run, book = G.book, p = player(run.playerId), meta = bookMeta(run.bookId);
+  let list;
+  if (run.kind === 'review') {
+    list = shuffle(wrongList(p, run.bookId).map((r) => book.map.get(r.w)).filter(Boolean)).slice(0, PER_LEVEL);
+    if (!list.length) { toast('这本书的错题已经清空了'); backFromRun(); return; }
+  } else list = levelEntries(book, run.levels[run.li]);
+  hideOverlays(); clearWorld();
+  G.list = list; G.qi = 0; G.results = [];
+  G.paused = false; stage.classList.remove('paused');
+  showScreen('game');
+  layout();
+  G.panda = makePanda(); G.panda.x = G.homeX; G.panda.y = G.homeY;
+  G.scroll = G.speed;
+  const lv = run.levels[run.li];
+  $('hudAv').innerHTML = avatarSVG(p);
+  $('hudBook').textContent = run.kind === 'pk' ? `PK · ${meta.name}` : meta.name;
+  $('hudLevel').textContent = run.kind === 'review' ? `${p ? p.name : ''} · 错题复习 · ${list.length} 词`
+    : run.kind === 'pk' ? `${p ? p.name : ''} · 第 ${lv + 1} 关（${run.li + 1}/${run.levels.length}）`
+      : `${p ? p.name : ''} · 第 ${lv + 1} 关 / 共 ${levelCount(meta)} 关`;
+  $('pwMain').innerHTML = ''; $('pwSub').textContent = ''; $('pwDir').textContent = '准备'; $('btnSpk').hidden = true; $('pwAns').className = 'pw-ans';
+  $('timerFill').style.transform = 'scaleX(1)'; $('timer').className = 'timer';
+  renderDots();
+  if (run.kind === 'normal' && p) { bstate(run.bookId, p).last = lv; save(); }
+  const title = run.kind === 'review' ? '错题复习' : run.kind === 'pk' ? `PK 第 ${run.li + 1} 关` : `第 ${lv + 1} 关`;
+  banner(title, run.kind === 'pk' ? `${p ? p.name : ''} 加油！每词 5 秒` : '点击正确的竹笋 · 每词 5 秒');
+  G.phase = 'intro';
+  after(1.35, nextQuestion);
+}
+function backFromRun() {
+  const run = G.run || {};
+  G.paused = false; stage.classList.remove('paused');
+  hideOverlays();
+  try { speechSynthesis.cancel(); } catch (e) { /* ignore */ }
+  clearWorld(); G.run = null;
+  if (run.back === 'notebook') openNotebook(nb.book, nb.from);
+  else if (run.back === 'pkmatch') openPkMatch(run.matchId);
+  else openLevels(run.bookId || curBook);
+}
+function banner(title, sub) {
+  const b = document.createElement('div'); b.className = 'banner';
+  b.innerHTML = `<b>${esc(title)}</b>${sub ? `<span>${esc(sub)}</span>` : ''}`;
+  fx.appendChild(b); after(1.4, () => b.remove());
+}
+function renderDots() {
+  const d = $('dots'); const n = G.list.length;
+  let h = '';
+  for (let i = 0; i < n; i++) { const r = G.results[i]; h += `<i class="${r ? (r.ok ? 'ok' : 'bad') : (i === G.qi && G.phase !== 'intro' ? 'cur' : '')}"></i>`; }
+  d.innerHTML = h; d.setAttribute('aria-label', `本关进度 ${G.results.length} / ${n}`);
+}
+function renderPrompt(q) {
+  const e = q.entry;
+  $('pwDir').textContent = q.dir === 'en2zh' ? '英 → 中' : '中 → 英';
+  const main = $('pwMain'), sub = $('pwSub');
+  if (q.dir === 'en2zh') {
+    main.innerHTML = `<span class="pw-en" lang="en">${esc(e[0])}</span>`;
+    sub.innerHTML = e[1] ? `<span class="ph">/${esc(e[1])}/</span>` : '';
+    $('btnSpk').hidden = !('speechSynthesis' in window);
+  } else {
+    main.innerHTML = `<span class="pw-zh">${e[2] ? `<span class="pos">${esc(e[2])}.</span>` : ''}${esc(e[3])}</span>`;
+    const rest = e[4].replace(/^[a-z/&]+\.\s*/, '');
+    sub.textContent = rest !== e[3] ? rest : '';
+    $('btnSpk').hidden = !('speechSynthesis' in window);
+  }
+  $('pwAns').className = 'pw-ans'; $('pwAns').innerHTML = '';
+  G.revealed = false;
+  $('btnSpk').setAttribute('aria-label', q.dir === 'en2zh' ? '朗读单词' : '朗读中文提示');
+  const inner = main.firstElementChild; inner.style.fontSize = '';
+  let fs = parseFloat(getComputedStyle(inner).fontSize);
+  const maxW = $('prompt').clientWidth - 90;
+  let guard = 30; while (guard-- > 0 && inner.scrollWidth > maxW && fs > 16) { fs -= 2; inner.style.fontSize = fs + 'px'; }
+}
+function revealPrompt(q, ok) {
+  const e = q.entry, a = $('pwAns');
+  a.innerHTML = `<b lang="en">${esc(e[0])}</b>${e[1] ? `<span class="ph">/${esc(e[1])}/</span> ` : ''} ${esc(e[4])}`;
+  a.className = 'pw-ans show' + (ok ? '' : ' bad');
+  G.revealed = true; $('btnSpk').setAttribute('aria-label', '朗读单词');
+  $('btnSpk').hidden = !('speechSynthesis' in window);
+  if (q.dir === 'zh2en' || !ok) speak(e[0]);
+}
+
+function speakPrompt(q, force) {
+  if (q.dir === 'zh2en' && !G.revealed) speak(q.entry[3].replace(/…$/, ''), force, true);
+  else speak(q.entry[0], force);
+}
+const SPROUT = .38;
+function nextQuestion() {
+  if (G.mode !== 'game' || !G.run) return;
+  if (G.qi >= G.list.length) return finishLevel();
+  const run = G.run;
+  const r = run.kind === 'pk' ? mulberry32((run.seed ^ (run.levels[run.li] * 1009 + G.qi * 97 + 1)) >>> 0) : Math.random;
+  const q = makeQuestion(G.list[G.qi], run.mode, r); G.q = q;
+  G.phase = 'sprout'; G.askT = 0; G.lastTick = 0; G.qStart = G.time;
+  renderDots(); renderPrompt(q);
+  $('timerFill').style.transform = 'scaleX(1)'; $('timer').className = 'timer';
+  const gap = (G.W - 4 * G.SW) / 5;
+  G.shoots = q.opts.map((e, i) => {
+    const s = makeShoot(i, e, q.dir, i === q.ans);
+    s.x = gap + G.SW / 2 + i * (G.SW + gap);
+    s.y = G.yTop - G.speed * SPROUT + (i % 2 ? 10 : 0);
+    s.sy = 0; s.sc = 1;
+    tween(s, { sy: 1 }, SPROUT + i * .05, 'back');
+    return s;
+  });
+  requestAnimationFrame(() => G.shoots.forEach(fitLabel));
+  after(SPROUT, () => {
+    if (G.phase !== 'sprout') return;
+    G.phase = 'ask'; G.askT = 0;
+    speakPrompt(q, false);
+  });
+}
+
+function answer(i) {
+  if (G.mode !== 'game' || G.paused || !G.run) return;
+  if (G.phase !== 'ask' && G.phase !== 'sprout') return;
+  const q = G.q, run = G.run, ok = i === q.ans;
+  G.phase = 'react';
+  G.shoots.forEach((s) => { s.el.disabled = true; });
+  const rt = i < 0 ? LIMIT : Math.min(LIMIT, Math.max(0, G.time - G.qStart - SPROUT));
+  const pick = i < 0 ? '超时' : optText(q, i);
+  G.results.push({ entry: q.entry, ok, timeout: i < 0, dir: q.dir, rt, pick });
+  run.stats.n++; run.stats.t += rt; if (ok) run.stats.c++;
+  const p = player(run.playerId);
+  if (ok && run.kind === 'review') removeWrong(p, run.bookId, q.entry[0]);
+  if (!ok) addWrong(p, run.bookId, q.entry, pick);
+  save();
+  renderDots();
+  revealPrompt(q, ok);
+  if (ok) eatSequence(G.shoots[i]);
+  else attackSequence(i);
+}
+
+function hop(P, tx, ty, dur, h, done) {
+  const sx = P.x, sy = P.y, pr = { p: 0 };
+  P.descend = false;
+  tween(pr, { p: 1 }, dur, 'lin', () => { P.hop = 0; if (done) done(); }, () => {
+    const e = EASE.inOut(pr.p); P.x = sx + (tx - sx) * e; P.y = sy + (ty - sy) * e; P.hop = -h * Math.sin(Math.PI * pr.p);
+    P.sy = 1 + .08 * Math.sin(Math.PI * pr.p); P.sx = 1 - .05 * Math.sin(Math.PI * pr.p);
+  });
+}
+
+function eatSequence(s) {
+  const P = G.panda;
+  SFX.good();
+  s.el.classList.add('chosen'); s.el.dataset.face = 'wow'; s.el.style.zIndex = 5;
+  G.shoots.forEach((o) => { if (o !== s) { o.el.dataset.face = 'sad'; after(.3, () => tween(o, { sy: 0 }, .3, 'in', () => { o.gone = true; o.el.style.visibility = 'hidden'; })); } });
+  P.home = false; pWalk(false); pView(true); pFace('happy');
+  const hopT = .36;
+  const tx = Math.max(G.PW / 2, Math.min(G.W - G.PW / 2, s.x)), ty = s.y + G.speed * hopT + G.SH * .12;
+  hop(P, tx, ty, hopT, 34, () => {
+    P.descend = true; s.descend = false;
+    tween(s, { x: P.x, y: P.y - G.PH * .1, sc: .64 }, .16, 'out', () => {
+      s.follow = true; pFace('chew');
+      let bite = 0;
+      const doBite = () => {
+        bite++; SFX.chomp();
+        crumbs(P.x, P.y - G.PH * .5, 6);
+        tween(s, { sc: .64 * (1 - bite * .3), sy: 1 - bite * .12, rot: (bite % 2 ? 8 : -8) }, .12, 'out');
+        if (bite < 3) after(.24, doBite);
+        else after(.2, () => {
+          s.gone = true; s.el.style.visibility = 'hidden';
+          pFace('happy'); floatText(P.x, P.y - G.PH - 6, '好吃！+1');
+          after(.3, () => {
+            hop(P, G.homeX, G.homeY, .42, 40, () => {
+              P.home = true; P.sx = P.sy = 1; pView(false); pFace('normal'); pWalk(true);
+              endQuestion();
+            });
+          });
+        });
+      };
+      after(.08, doBite);
+    });
+  });
+}
+
+function attackSequence(chosen) {
+  const P = G.panda, timeout = chosen < 0;
+  SFX.bad();
+  G.shoots.forEach((s) => { s.el.dataset.face = 'angry'; s.descend = false; });
+  if (!timeout) G.shoots[chosen].el.classList.add('picked-bad');
+  G.shoots[G.q.ans].el.classList.add('answer');
+  if (timeout) floatText(G.W / 2, G.yTop - G.SH * .5, '时间到！', true);
+  const cx = G.homeX, sc = .8, off = G.PW * .5 + G.SW * sc * .5 - 2;
+  const slots = [
+    { x: cx - off - G.SW * .1, y: G.homeY + 2 }, { x: cx - off + 4, y: G.homeY - G.PH * .5 },
+    { x: cx + off - 4, y: G.homeY - G.PH * .5 }, { x: cx + off + G.SW * .1, y: G.homeY + 2 },
+  ];
+  const order = G.shoots.slice().sort((a, b) => a.x - b.x);
+  order.forEach((s, k) => {
+    const sl = slots[k];
+    sl.x = Math.max(G.SW * sc / 2 + 2, Math.min(G.W - G.SW * sc / 2 - 2, sl.x));
+    tween(s, { x: sl.x, y: sl.y, sc }, .34, 'out');
+  });
+  const pcx = G.homeX, pcy = G.homeY - G.PH * .48;
+  after(.36, () => {
+    order.forEach((s, k) => {
+      const ox = s.x, oy = s.y - G.SH * sc * .53;
+      const dx = pcx - ox, dy = pcy - oy, dist = Math.hypot(dx, dy);
+      const reach = Math.max(12, (dist - G.PW * .3 - 14) / sc);
+      s.punch = { ang: Math.atan2(dy, dx), reach, ext: 0, k: 0, start: G.time + k * .07, hit: -1 };
+      s.el.classList.add('attack');
+    });
+  });
+  after(.36 + .34 * .38, () => {
+    pWalk(false); pView(true); pFace(timeout ? 'dizzy' : 'hurt');
+    if (timeout) { SFX.dizzy(); P.dizzy = true; P.el.classList.add('dizzy'); }
+    else {
+      SFX.whoosh();
+      const pr = { p: 0 };
+      tween(pr, { p: 1 }, .8, 'inOut', () => { P.r = 0; P.hop = 0; }, () => { P.r = 360 * pr.p; P.hop = -28 * Math.sin(Math.PI * pr.p); P.sy = 1 - .12 * Math.sin(Math.PI * pr.p); P.sx = 1 + .06 * Math.sin(Math.PI * pr.p); });
+    }
+  });
+  const end = .36 + .34 * 3 + .07 * 3 + .12;
+  after(end, () => {
+    G.shoots.forEach((s) => { s.punch = null; s.el.classList.remove('attack'); tween(s, { sy: 0 }, .3, 'in', () => { s.el.style.visibility = 'hidden'; }); });
+  });
+  after(end + (timeout ? .75 : .45), () => {
+    P.dizzy = false; P.el.classList.remove('dizzy'); P.r = 0; P.sx = P.sy = 1;
+    pView(false); pFace('normal'); pWalk(true);
+    endQuestion();
+  });
+}
+function onPunchHit(s) {
+  const P = G.panda; if (!P) return;
+  SFX.punch();
+  const pcx = G.homeX, pcy = G.homeY - G.PH * .48;
+  const a = s.punch.ang;
+  pow(pcx - Math.cos(a) * G.PW * .3 + rand(-6, 6), pcy - Math.sin(a) * G.PH * .22 + rand(-6, 6));
+  P.shake = 3; after(.1, () => { if (G.panda) G.panda.shake = 0; });
+}
+function endQuestion() {
+  G.shoots.forEach((s) => s.el.remove());
+  G.shoots = [];
+  G.qi++;
+  G.phase = 'between';
+  after(.18, nextQuestion);
+}
+
+function finishLevel() {
+  G.phase = 'done';
+  const run = G.run, n = G.results.length, ok = G.results.filter((r) => r.ok).length;
+  if (run.kind === 'pk') return pkLevelDone(n, ok);
+  const p = player(run.playerId), meta = bookMeta(run.bookId);
+  const ratio = n ? ok / n : 0;
+  const stars = ratio >= 1 ? 3 : ratio >= .8 ? 2 : ratio >= .6 ? 1 : 0;
+  const lv = run.levels[0];
+  if (run.kind === 'normal' && p) { const bs = bstate(run.bookId, p); bs.stars[lv] = Math.max(bs.stars[lv] || 0, stars); save(); }
+  stars ? SFX.win() : SFX.meh();
+  $('rStars').innerHTML = [0, 1, 2].map((k) => BIGSTAR(k < stars)).join('');
+  $('resT').textContent = run.kind === 'review' ? '错题复习完成' : `第 ${lv + 1} 关完成`;
+  $('rScore').textContent = `答对 ${ok} / ${n}`;
+  $('rMsg').textContent = stars === 3 ? '全部吃光，熊猫吃撑了！' : stars === 2 ? '差一点满分，再来一次？' : stars === 1 ? '过关啦，错的词已经记进错题本。' : '竹笋们赢了这一局，错的词已经记进错题本。';
+  $('rList').innerHTML = G.results.map((r) => `<li class="${r.ok ? 'ok' : 'bad'}" data-w="${esc(r.entry[0])}"><span class="mk">${r.ok ? '✓' : '✗'}</span><span class="w" lang="en">${esc(r.entry[0])}${r.entry[1] ? `<small>/${esc(r.entry[1])}/</small>` : ''}</span><span class="m">${esc(r.entry[4])}</span></li>`).join('');
+  if (run.kind === 'review') {
+    const left = wrongList(p, run.bookId).length;
+    $('btnAgain').hidden = true;
+    $('btnToLevels').textContent = '返回错题本';
+    $('btnNext').hidden = !left; $('btnNext').textContent = `继续复习 (${left})`;
+  } else {
+    $('btnAgain').hidden = false;
+    $('btnToLevels').textContent = '选关';
+    $('btnNext').hidden = lv + 1 >= levelCount(meta); $('btnNext').textContent = '下一关';
+  }
+  $('ovResult').hidden = false;
+  $('ovResult').querySelector('.card').scrollTop = 0;
+  setTimeout(() => ($('btnNext').hidden ? $('btnToLevels') : $('btnNext')).focus({ preventScroll: true }), 60);
+}
+
+/* ---------------- pause ---------------- */
+function setPaused(p) {
+  if (G.mode !== 'game' || G.phase === 'done' || !G.run) return;
+  G.paused = p; stage.classList.toggle('paused', p); $('ovPause').hidden = !p;
+  const pk = G.run.kind === 'pk', q = $('btnQuit');
+  q.classList.remove('armed');
+  if (p) {
+    $('btnRestart').hidden = pk;
+    $('pauseSub').textContent = pk ? '这是 PK 局，不能重来本关' : '熊猫在原地等你';
+    q.textContent = pk ? '放弃本轮（没答的题算错）' : G.run.back === 'notebook' ? '退出到错题本' : '退出到选关';
+    try { speechSynthesis.cancel(); } catch (e) { /* ignore */ }
+    setTimeout(() => $('btnResume').focus({ preventScroll: true }), 30);
+  }
+}
+
+/* ---------------- books ---------------- */
+const cache = {};
+let pendingLoad = null;
+async function loadBook(id) {
+  if (cache[id]) return cache[id];
+  const ov = $('ovLoading');
+  $('loadT').textContent = `打开「${bookMeta(id).name}」…`; $('loadMsg').textContent = '第一次打开需要下载词库'; $('loadBtns').hidden = true; ov.hidden = false;
+  try {
+    const r = await fetch(`books/${id}.json`);
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    const words = await r.json();
+    cache[id] = { id, words, map: new Map(words.map((e) => [e[0], e])) };
+    ov.hidden = true;
+    return cache[id];
+  } catch (e) {
+    $('loadT').textContent = '单词书没有下载成功'; $('loadMsg').textContent = location.protocol === 'file:' ? '直接双击打开的 index.html 读不到词库，请按 README 用本地服务器或 GitHub Pages 打开。' : '请检查网络连接后点「重试」。'; $('loadBtns').hidden = false;
+    pendingLoad = id;
+    return null;
+  }
+}
+
+/* ---------------- toast / copy ---------------- */
+function toast(msg) {
+  const t = document.createElement('div'); t.className = 'toast'; t.setAttribute('role', 'status'); t.textContent = msg;
+  stage.appendChild(t); setTimeout(() => t.remove(), 2700);
+}
+function showCopyBox(text) {
+  $('copyBox').value = text; $('ovCopy').hidden = false;
+  setTimeout(() => { $('copyBox').focus(); $('copyBox').select(); }, 30);
+}
+
+/* ---------------- players ---------------- */
+let managing = false;
+const pf = { id: null, color: PCOLORS[0], first: false, onDone: null, armed: false };
+function renderPlayers() {
+  const list = S.players.map((p) => {
+    const lv = Object.values(p.books).reduce((a, b) => a + Object.values(b.stars || {}).filter((v) => v > 0).length, 0);
+    const wn = Object.keys(p.wrong).length;
+    const tag = managing ? '<span class="tagedit">编辑</span>' : p.id === S.current ? '<span class="tagme">上次</span>' : '';
+    return `<button class="pcard" data-id="${p.id}" aria-label="${managing ? '编辑' : '以'} ${esc(p.name)}${managing ? '' : ' 登录'}">${tag}<span class="av">${avatarSVG(p)}</span><b>${esc(p.name)}</b><small>已过 ${lv} 关 · 错题 ${wn}</small></button>`;
+  }).join('');
+  const add = S.players.length < MAX_PLAYERS ? `<button class="pcard add" data-add="1"><i>+</i>添加玩家<small>还能加 ${MAX_PLAYERS - S.players.length} 位</small></button>` : '';
+  $('playerList').innerHTML = list + add;
+  $('btnManage').hidden = !S.players.length;
+  $('btnManage').textContent = managing ? '完成' : '管理玩家';
+}
+function openPlayers() { managing = false; renderPlayers(); showScreen('players'); }
+function login(id) { S.current = id; save(); managing = false; goHome(); }
+function openPlayerForm(p, opts = {}) {
+  pf.id = p ? p.id : null; pf.first = !!opts.first; pf.onDone = opts.onDone || null; pf.armed = false;
+  const used = new Set(S.players.map((x) => x.color));
+  pf.color = p ? p.color : (PCOLORS.find((c) => !used.has(c)) || PCOLORS[0]);
+  $('pfTitle').textContent = p ? '编辑玩家' : pf.first ? '先认识一下你' : '新玩家';
+  $('pfName').value = p ? p.name : '';
+  $('pfErr').hidden = true;
+  $('pfCancel').hidden = pf.first;
+  $('pfDel').hidden = !p; $('pfDel').classList.remove('armed'); $('pfDel').textContent = '删除这个玩家';
+  renderPfColors(); updatePfAvatar();
+  $('ovPlayer').hidden = false;
+  setTimeout(() => $('pfName').focus(), 40);
+}
+function renderPfColors() {
+  $('pfColors').innerHTML = PCOLORS.map((c, i) => `<button type="button" role="radio" aria-checked="${c === pf.color}" aria-label="颜色 ${i + 1}" data-c="${c}" style="--c:${c}"></button>`).join('');
+}
+function updatePfAvatar() { $('pfAv').innerHTML = avatarSVG({ name: $('pfName').value.trim() || '?', color: pf.color }); }
+function submitPlayer() {
+  const name = $('pfName').value.trim().slice(0, 8);
+  const err = (m) => { $('pfErr').textContent = m; $('pfErr').hidden = false; };
+  if (!name) return err('先起个名字吧');
+  if (S.players.some((x) => x.name === name && x.id !== pf.id)) return err('已经有叫这个名字的玩家了');
+  let p;
+  if (pf.id) { p = player(pf.id); p.name = name; p.color = pf.color; }
+  else {
+    if (S.players.length >= MAX_PLAYERS) return err(`最多 ${MAX_PLAYERS} 位玩家`);
+    p = { id: uid(), name, color: pf.color, books: {}, wrong: {} };
+    S.players.push(p);
+  }
+  save();
+  $('ovPlayer').hidden = true;
+  if (pf.onDone) pf.onDone(p, !pf.id);
+  else renderPlayers();
+}
+function deletePlayer() {
+  const btn = $('pfDel');
+  if (!pf.armed) { pf.armed = true; btn.classList.add('armed'); btn.textContent = '再点一次确认删除（进度和错题会一起删掉）'; return; }
+  S.players = S.players.filter((x) => x.id !== pf.id);
+  if (S.current === pf.id) S.current = null;
+  save();
+  $('ovPlayer').hidden = true;
+  if (!S.players.length) { managing = false; renderPlayers(); showScreen('players'); openPlayerForm(null, { first: true, onDone: (np) => login(np.id) }); }
+  else renderPlayers();
+}
+
+/* ---------------- home & levels ---------------- */
+function goHome() { renderHome(); showScreen('home'); }
+function renderHome() {
+  const p = me(); if (!p) return openPlayers();
+  $('whoAv').innerHTML = avatarSVG(p); $('whoName').textContent = p.name;
+  const wn = Object.keys(p.wrong).length;
+  $('nbCount').textContent = wn ? `${wn} 个词待复习` : '还没有错题';
+  $('books').innerHTML = BOOKS.map((b) => {
+    const bs = p.books[b.id]; const total = levelCount(b);
+    const done = bs && bs.stars ? Object.values(bs.stars).filter((v) => v > 0).length : 0;
+    return `<button class="book" data-id="${b.id}" style="--c:${b.color}"><span class="spine"></span><span class="b-name">${esc(b.name)}</span><span class="b-desc">${esc(b.desc)}</span><span class="b-meta">${b.count} 词 · ${total} 关${done ? ` · 已过 ${done}` : ''}</span><span class="b-bar"><i style="width:${(done / total * 100).toFixed(1)}%"></i></span></button>`;
+  }).join('');
+  document.querySelectorAll('#segMode button').forEach((btn) => btn.setAttribute('aria-checked', String(btn.dataset.mode === S.mode)));
+  $('optSpeak').checked = !!S.speak; $('optSfx').checked = !!S.sfx;
+}
+let curBook = null, curChapter = 0;
+function openLevels(id) {
+  curBook = id; const b = bookMeta(id), bs = bstate(id), total = levelCount(b);
+  const next = firstOpen(id);
+  curChapter = Math.floor(next / CHAPTER);
+  $('lvTitle').textContent = b.name;
+  const done = Object.values(bs.stars).filter((v) => v > 0).length;
+  const starSum = Object.values(bs.stars).reduce((a, v) => a + v, 0);
+  $('lvSub').textContent = `${me().name} · ${b.count} 词 · ${total} 关 · 已过 ${done} 关 · ★ ${starSum}`;
+  $('btnContinue').textContent = done ? `继续第 ${next + 1} 关` : '开始第 1 关';
+  const wn = wrongList(me(), id).length;
+  $('btnReview').textContent = `错题本 · ${wn}`;
+  $('btnReview').disabled = !wn;
+  renderChips(); renderGrid();
+  showScreen('levels');
+}
+function firstOpen(id) {
+  const b = bookMeta(id), bs = bstate(id), total = levelCount(b);
+  for (let i = 0; i < total; i++) if (!(bs.stars[i] > 0)) return i;
+  return Math.min(total - 1, (bs.last || 0));
+}
+function renderChips() {
+  const total = levelCount(bookMeta(curBook)); const n = Math.ceil(total / CHAPTER);
+  const c = $('chips'); c.hidden = n <= 1;
+  let h = '';
+  for (let k = 0; k < n; k++) h += `<button data-k="${k}" aria-pressed="${k === curChapter}">${k * CHAPTER + 1}–${Math.min(total, (k + 1) * CHAPTER)}</button>`;
+  c.innerHTML = h;
+  const cur = c.querySelector('[aria-pressed=true]'); if (cur) cur.scrollIntoView({ block: 'nearest', inline: 'center' });
+}
+function renderGrid() {
+  const total = levelCount(bookMeta(curBook)), bs = bstate(curBook), next = firstOpen(curBook);
+  let h = '';
+  for (let i = curChapter * CHAPTER; i < Math.min(total, (curChapter + 1) * CHAPTER); i++) {
+    const st = bs.stars[i] || 0;
+    const cls = i === next ? 'cur' : st > 0 ? 'done' : '';
+    h += `<button class="lv ${cls}" data-i="${i}" aria-label="第 ${i + 1} 关${st ? `，${st} 星` : ''}"><b>${i + 1}</b><span class="st"><em>${'★'.repeat(st)}</em>${'★'.repeat(3 - st)}</span></button>`;
+  }
+  $('grid').innerHTML = h;
+}
+const normalRun = (bookId, lv) => ({ kind: 'normal', bookId, levels: [lv], playerId: S.current, mode: S.mode, back: 'levels' });
+
+/* ---------------- notebook ---------------- */
+const nb = { book: null, sort: 'recent', from: 'home' };
+let DL = null;
+const SPK_ICON = '<svg viewBox="0 0 20 20" aria-hidden="true"><path d="M3 8h3l4-3.5v11L6 12H3z" fill="#4f8a2b"/><path d="M13 7.2a4 4 0 0 1 0 5.6M15.2 5a7 7 0 0 1 0 10" stroke="#4f8a2b" stroke-width="1.8" fill="none" stroke-linecap="round"/></svg>';
+const pad2 = (n) => String(n).padStart(2, '0');
+function fmtDate(t, full) {
+  const d = new Date(t);
+  return full ? `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())} ${pad2(d.getHours())}:${pad2(d.getMinutes())}` : `${d.getMonth() + 1}月${d.getDate()}日`;
+}
+async function openNotebook(bookId, from) {
+  nb.book = bookId || null; nb.from = from || 'home';
+  const p = me(); if (!p) return;
+  if (Object.values(p.wrong).some((r) => !r.m)) { // entries migrated from the old version lack meanings
+    const need = [...new Set(Object.values(p.wrong).filter((r) => !r.m).map((r) => r.b))];
+    for (const b of need) {
+      const bk = await loadBook(b); if (!bk) continue;
+      Object.values(p.wrong).forEach((r) => { if (r.b === b && !r.m) { const e = bk.map.get(r.w); if (e) { r.p = e[1]; r.m = e[4]; } } });
+    }
+    save();
+  }
+  renderNotebook(); showScreen('notebook');
+}
+function nbRows() {
+  const rows = wrongList(me(), nb.book);
+  return rows.sort(nb.sort === 'count' ? (a, b) => b.n - a.n || b.t - a.t : (a, b) => b.t - a.t);
+}
+function renderNotebook() {
+  const p = me(); if (!p) return;
+  const all = wrongList(p);
+  if (nb.book && !all.some((r) => r.b === nb.book)) nb.book = null;
+  $('nbAv').innerHTML = avatarSVG(p);
+  $('nbSub').textContent = `${p.name} · 共 ${all.length} 个词`;
+  const counts = {}; all.forEach((r) => { counts[r.b] = (counts[r.b] || 0) + 1; });
+  $('nbBooks').innerHTML = `<button data-b="" aria-pressed="${!nb.book}">全部 ${all.length}</button>` +
+    BOOKS.filter((b) => counts[b.id]).map((b) => `<button data-b="${b.id}" aria-pressed="${nb.book === b.id}">${esc(b.name)} ${counts[b.id]}</button>`).join('');
+  $('nbBooks').hidden = !all.length;
+  document.querySelectorAll('#nbSort button').forEach((b) => b.setAttribute('aria-checked', String(b.dataset.sort === nb.sort)));
+  const rows = nbRows();
+  $('nbReview').disabled = !nb.book || !rows.length;
+  $('nbReview').textContent = nb.book ? `复习「${bookMeta(nb.book).name}」` : '复习这些词';
+  $('nbHint').textContent = !rows.length ? '' : !nb.book ? '先在上面选一本书，就能开始复习。复习时答对的词会从错题本移走。' : '每次随机抽 10 个错题来复习，答对的词会从错题本移走。';
+  $('nbCsv').hidden = $('nbTxt').hidden = !DL;
+  $('nbCsv').disabled = $('nbTxt').disabled = $('nbCopy').disabled = !rows.length;
+  $('nbList').innerHTML = rows.length ? rows.map((r) => {
+    const pk = r.pick === '超时' ? ' · 超时没选' : r.pick ? ` · 当时选了「${esc(r.pick)}」` : '';
+    return `<li class="nb-row" data-b="${r.b}" data-w="${esc(r.w)}"><button class="rbtn" data-act="say" aria-label="朗读 ${esc(r.w)}">${SPK_ICON}</button><div style="min-width:0"><div class="w" lang="en">${esc(r.w)}${r.p ? `<small>/${esc(r.p)}/</small>` : ''}</div><div class="m">${esc(r.m || '')}</div><div class="meta"><em>错 ${r.n} 次</em> · ${esc(bookMeta(r.b).name)} · ${fmtDate(r.t)}${pk}</div></div><button class="okbtn" data-act="ok" aria-label="${esc(r.w)} 已掌握，移出错题本">已掌握</button></li>`;
+  }).join('') : '<li class="empty">还没有错题。去玩几关吧，答错或超时的词会自动记到这里。</li>';
+}
+function buildCSV(rows) {
+  const q = (v) => { const s = String(v == null ? '' : v); return /[",\r\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s; };
+  const head = ['单词', '音标', '释义', '单词书', '答错次数', '最近答错', '当时的选择'];
+  const body = rows.map((r) => [r.w, r.p ? `/${r.p}/` : '', r.m, bookMeta(r.b).name, r.n, fmtDate(r.t, true), r.pick]);
+  return '﻿' + [head, ...body].map((a) => a.map(q).join(',')).join('\r\n') + '\r\n';
+}
+function buildTXT(rows) {
+  const p = me();
+  const lines = [`熊猫背单词 · 错题本`, `玩家：${p.name}    导出时间：${fmtDate(Date.now(), true)}    共 ${rows.length} 个词`, ''];
+  BOOKS.forEach((b) => {
+    const rs = rows.filter((r) => r.b === b.id); if (!rs.length) return;
+    lines.push(`【${b.name}】${rs.length} 个`);
+    rs.forEach((r, i) => lines.push(`${i + 1}. ${r.w}${r.p ? `  /${r.p}/` : ''}  ${r.m}  （错 ${r.n} 次）`));
+    lines.push('');
+  });
+  return lines.join('\n');
+}
+async function nbExport(fmt) {
+  const rows = nbRows(); if (!rows.length || !DL) return;
+  const p = me(), d = new Date();
+  const scope = nb.book ? bookMeta(nb.book).name : '全部';
+  const filename = `错题本-${p.name}-${scope}-${d.getFullYear()}${pad2(d.getMonth() + 1)}${pad2(d.getDate())}.${fmt}`.replace(/[\\/:*?"<>|]/g, '');
+  try {
+    await DL.save({ filename, data: fmt === 'csv' ? buildCSV(rows) : buildTXT(rows) });
+    toast('已导出：' + filename);
+  } catch (e) {
+    const c = e && e.code;
+    if (c === 'declined') toast('已取消导出');
+    else if (c === 'rate_limited') toast('导出确认框已经打开了，先处理它');
+    else { DL = null; renderNotebook(); toast('这里不能直接导出文件，可以用「复制全部」'); }
+  }
+}
+function nbCopy() {
+  const text = buildTXT(nbRows());
+  try {
+    navigator.clipboard.writeText(text).then(() => toast('已复制，可以粘贴到微信或备忘录'), () => showCopyBox(text));
+  } catch (e) { showCopyBox(text); }
+}
+(async () => {
+  try {
+    if (window.claude && typeof window.claude.use === 'function') DL = await window.claude.use('downloads');
+    else DL = { // ordinary browser (e.g. GitHub Pages): save through a temporary download link
+      save({ filename, data }) {
+        const type = /\.csv$/.test(filename) ? 'text/csv;charset=utf-8' : 'text/plain;charset=utf-8';
+        const url = URL.createObjectURL(new Blob([data], { type }));
+        const a = document.createElement('a'); a.href = url; a.download = filename;
+        document.body.appendChild(a); a.click(); a.remove();
+        setTimeout(() => URL.revokeObjectURL(url), 4000);
+        return Promise.resolve({ status: 'saved' });
+      },
+    };
+  } catch (e) { DL = null; }
+  if (G.mode === 'notebook') renderNotebook();
+})();
+
+/* ---------------- PK ---------------- */
+const pkMatch = (id) => S.pk.find((m) => m.id === id) || null;
+const pn = { bookId: 'junior', start: 1, count: 3, mode: 'mix', sel: new Set() };
+let pmId = null, pmDelArmed = false;
+function pkName(pp) { const p = player(pp.id); return p ? p.name : pp.name; }
+function pkAv(pp) { const p = player(pp.id); return avatarSVG(p || pp); }
+function levelRange(m) { return m.count > 1 ? `第 ${m.start + 1}–${m.start + m.count} 关` : `第 ${m.start + 1} 关`; }
+function pkRank(m) {
+  const rows = m.players.map((pp) => { const r = m.res[pp.id]; return { pp, r, done: !!(r && r.done), acc: r && r.n ? r.c / r.n : 0 }; });
+  const done = rows.filter((x) => x.done).sort((a, b) => b.acc - a.acc || a.r.t - b.r.t);
+  let rank = 0;
+  done.forEach((x, i) => { const pv = done[i - 1]; if (!pv || x.acc !== pv.acc || Math.round(x.r.t * 10) !== Math.round(pv.r.t * 10)) rank = i + 1; x.rank = rank; });
+  const pending = rows.filter((x) => !x.done);
+  return { done, pending, finished: !pending.length };
+}
+function openPk() {
+  const n = S.players.length;
+  $('pkNew').disabled = n < 2; $('pkNeed').hidden = n >= 2;
+  $('pkListT').hidden = !S.pk.length;
+  $('pkList').innerHTML = S.pk.length ? S.pk.map((m) => {
+    const rk = pkRank(m), meta = bookMeta(m.bookId);
+    const champ = rk.finished ? rk.done.filter((x) => x.rank === 1).map((x) => pkName(x.pp)).join('、') : '';
+    const st = rk.finished ? `<span class="st-pill done">已结束</span>` : `<span class="st-pill">进行中</span>`;
+    const sub = rk.finished ? `冠军：${esc(champ)} · ${fmtDate(m.created)}` : `${rk.done.length}/${m.players.length} 人已完成 · ${fmtDate(m.created)}`;
+    return `<button class="pk-item" data-id="${m.id}"><b>${esc(meta.name)} · ${levelRange(m)}${st}</b><span class="s">${sub}</span><span class="avs">${m.players.map((pp) => `<span class="av">${pkAv(pp)}</span>`).join('')}</span></button>`;
+  }).join('') : '';
+  showScreen('pk');
+}
+function openPkNew(prefill) {
+  if (prefill) Object.assign(pn, prefill);
+  else { pn.mode = S.mode; pn.sel = new Set(S.players.map((p) => p.id)); if (curBook) pn.bookId = curBook; }
+  renderPkNew(); showScreen('pknew');
+}
+function renderPkNew() {
+  pn.sel = new Set([...pn.sel].filter((id) => player(id)));
+  const meta = bookMeta(pn.bookId), total = levelCount(meta);
+  const maxStart = Math.max(1, total - pn.count + 1);
+  pn.start = Math.min(Math.max(1, pn.start | 0), maxStart);
+  $('pnBooks').innerHTML = BOOKS.map((b) => `<button type="button" data-id="${b.id}" aria-pressed="${b.id === pn.bookId}" style="--c:${b.color}">${esc(b.name.replace(/ (TOEFL|IELTS)$/, ''))}</button>`).join('');
+  $('pnStart').value = pn.start; $('pnStart').max = maxStart;
+  $('pnMax').textContent = `共 ${total} 关`;
+  document.querySelectorAll('#pnCount button').forEach((b) => b.setAttribute('aria-checked', String(+b.dataset.n === pn.count)));
+  document.querySelectorAll('#pnMode button').forEach((b) => b.setAttribute('aria-checked', String(b.dataset.mode === pn.mode)));
+  $('pnWho').innerHTML = S.players.map((p) => `<button type="button" data-id="${p.id}" aria-pressed="${pn.sel.has(p.id)}"><span class="av">${avatarSVG(p)}</span>${esc(p.name)}</button>`).join('') +
+    (S.players.length < MAX_PLAYERS ? '<button type="button" data-add="1">＋ 添加玩家</button>' : '');
+  const end = pn.start + pn.count - 1;
+  $('pnSum').textContent = `${meta.name} ${pn.count > 1 ? `第 ${pn.start}–${end} 关` : `第 ${pn.start} 关`} · ${pn.count * PER_LEVEL} 个词 · ${pn.sel.size} 人参赛`;
+  $('pnErr').hidden = true;
+}
+async function createPk() {
+  if (pn.sel.size < 2) { $('pnErr').textContent = '至少选 2 位玩家'; $('pnErr').hidden = false; return; }
+  const book = await loadBook(pn.bookId); if (!book) return;
+  const m = {
+    id: uid(), bookId: pn.bookId, start: pn.start - 1, count: pn.count, mode: pn.mode,
+    seed: (Math.random() * 2147483647) | 0, created: Date.now(),
+    players: S.players.filter((p) => pn.sel.has(p.id)).map((p) => ({ id: p.id, name: p.name, color: p.color })), res: {},
+  };
+  S.pk.unshift(m); S.pk = S.pk.slice(0, 30); save();
+  openPkMatch(m.id);
+}
+function openPkMatch(id) {
+  const m = pkMatch(id); if (!m) return openPk();
+  pmId = id; pmDelArmed = false; $('pmDel').textContent = '删除这局'; $('pmDel').classList.remove('armed');
+  const meta = bookMeta(m.bookId), rk = pkRank(m);
+  const modeName = { en2zh: '英 → 中', zh2en: '中 → 英', mix: '混合' }[m.mode];
+  $('pmTitle').textContent = `PK · ${meta.name}`;
+  $('pmSub').textContent = `${levelRange(m)} · ${m.count * PER_LEVEL} 个词 · ${modeName} · ${m.players.length} 人`;
+  const champs = rk.done.filter((x) => x.rank === 1);
+  $('pmWinner').innerHTML = rk.finished && champs.length
+    ? `<div class="winner"><svg viewBox="0 0 40 40" aria-hidden="true"><path d="M5 30 L3 11 L13 19 L20 6 L27 19 L37 11 L35 30Z" fill="#ffd43b" stroke="#9a7400" stroke-width="2.5" stroke-linejoin="round"/><rect x="5" y="30" width="30" height="5" rx="2" fill="#f0b400" stroke="#9a7400" stroke-width="2.5"/></svg>${champs.length > 1 ? `并列第一：${esc(champs.map((x) => pkName(x.pp)).join('、'))}` : `${esc(pkName(champs[0].pp))} 获胜！`}</div>` : '';
+  const li = (x) => {
+    const r = x.r;
+    if (x.done) {
+      return `<li class="${x.rank === 1 && rk.finished ? 'first' : ''}"><span class="rk">${x.rank}</span><span class="av">${pkAv(x.pp)}</span><div style="min-width:0"><div class="nm">${esc(pkName(x.pp))}</div><div class="sub">答对 ${r.c}/${r.n} · 用时 ${r.t.toFixed(1)} 秒${r.quit ? ' · 中途放弃' : ''}</div></div><span class="acc">${Math.round(x.acc * 100)}%</span></li>`;
+    }
+    const alive = !!player(x.pp.id);
+    const sub = !alive ? '玩家已删除' : r && r.n ? '上次没打完，要重新开始' : '还没挑战';
+    return `<li><span class="rk">–</span><span class="av">${pkAv(x.pp)}</span><div style="min-width:0"><div class="nm">${esc(pkName(x.pp))}</div><div class="sub">${sub}</div></div>${alive ? `<button class="btn sm primary" data-play="${x.pp.id}">开始</button>` : ''}</li>`;
+  };
+  $('pmBoard').innerHTML = rk.done.map(li).join('') + rk.pending.map(li).join('');
+  const total = levelCount(meta);
+  $('pmNext').hidden = !rk.finished || m.start + m.count >= total;
+  $('pmNext').textContent = `再比下一组（第 ${m.start + m.count + 1} 关起）`;
+  showScreen('pkmatch');
+}
+function askHandover(m, pid) {
+  const p = player(pid); if (!p) return;
+  $('handAv').innerHTML = avatarSVG(p);
+  $('handT').textContent = `轮到 ${p.name} 了`;
+  $('handSub').textContent = `${bookMeta(m.bookId).name} · ${levelRange(m)} · 共 ${m.count * PER_LEVEL} 个词`;
+  $('handGo').onclick = () => {
+    $('ovHand').hidden = true; ac();
+    m.res[pid] = { c: 0, n: 0, t: 0, done: false }; save();
+    const levels = Array.from({ length: m.count }, (_, k) => m.start + k);
+    startRun({ kind: 'pk', bookId: m.bookId, levels, playerId: pid, mode: m.mode, seed: m.seed, matchId: m.id, back: 'pkmatch' });
+  };
+  $('ovHand').hidden = false;
+  setTimeout(() => $('handGo').focus({ preventScroll: true }), 40);
+}
+function pkLevelDone(n, ok) {
+  const run = G.run, m = pkMatch(run.matchId), p = player(run.playerId);
+  const last = run.li >= run.levels.length - 1;
+  const st = run.stats;
+  if (m) { m.res[run.playerId] = { c: st.c, n: st.n, t: st.t, done: last, at: Date.now() }; save(); }
+  const pct = st.n ? Math.round(st.c / st.n * 100) : 0;
+  $('stepAv').innerHTML = avatarSVG(p);
+  $('stepT').textContent = last ? '挑战完成！' : `第 ${run.li + 1}/${run.levels.length} 关完成`;
+  $('stepScore').textContent = `本关答对 ${ok} / ${n}`;
+  $('stepMsg').textContent = last ? `总正确率 ${pct}% · 答对 ${st.c}/${st.n} · 用时 ${st.t.toFixed(1)} 秒` : `目前正确率 ${pct}%，歇口气再继续`;
+  $('stepGo').textContent = last ? '查看排名' : '下一关';
+  last ? SFX.win() : SFX.good();
+  $('ovStep').hidden = false;
+  setTimeout(() => $('stepGo').focus({ preventScroll: true }), 60);
+}
+function pkForfeit() {
+  const run = G.run, m = pkMatch(run.matchId), st = run.stats;
+  const remaining = (G.list.length - G.results.length) + (run.levels.length - run.li - 1) * PER_LEVEL;
+  st.n += remaining; st.t += remaining * LIMIT;
+  if (m) { m.res[run.playerId] = { c: st.c, n: st.n, t: st.t, done: true, quit: true, at: Date.now() }; save(); }
+  backFromRun();
+}
+
+/* ---------------- mascot ---------------- */
+function renderMascot() {
+  const art = `<div class="m-panda panda front" data-face="happy">${pandaSVG()}</div><div class="m-shoot shoot" data-face="normal">${shootSVG()}</div>`;
+  $('mascot').innerHTML = art; $('mascot2').innerHTML = art;
+  $('spin').innerHTML = `<div class="shoot" data-face="normal" style="position:relative;width:64px;height:64px">${shootSVG()}</div>`;
+}
+
+/* ---------------- events ---------------- */
+function bind() {
+  // players
+  $('playerList').addEventListener('click', (e) => {
+    const c = e.target.closest('.pcard'); if (!c) return;
+    SFX.tap();
+    if (c.dataset.add) return openPlayerForm(null, { onDone: (p) => (managing ? renderPlayers() : login(p.id)) });
+    const p = player(c.dataset.id); if (!p) return;
+    managing ? openPlayerForm(p) : login(p.id);
+  });
+  $('btnManage').addEventListener('click', () => { managing = !managing; renderPlayers(); });
+  $('btnWho').addEventListener('click', openPlayers);
+  $('pf').addEventListener('submit', (e) => { e.preventDefault(); submitPlayer(); });
+  $('pfName').addEventListener('input', updatePfAvatar);
+  $('pfColors').addEventListener('click', (e) => { const b = e.target.closest('button'); if (!b) return; pf.color = b.dataset.c; renderPfColors(); updatePfAvatar(); });
+  $('pfCancel').addEventListener('click', () => { $('ovPlayer').hidden = true; });
+  $('pfDel').addEventListener('click', deletePlayer);
+  // home
+  $('books').addEventListener('click', (e) => {
+    const btn = e.target.closest('.book'); if (!btn) return;
+    SFX.tap(); openLevels(btn.dataset.id);
+    loadBook(btn.dataset.id);
+  });
+  $('btnNotebook').addEventListener('click', () => { SFX.tap(); openNotebook(null, 'home'); });
+  $('btnPK').addEventListener('click', () => { SFX.tap(); openPk(); });
+  $('segMode').addEventListener('click', (e) => {
+    const b = e.target.closest('button'); if (!b) return;
+    S.mode = b.dataset.mode; save(); renderHome(); SFX.tap();
+  });
+  $('segMode').addEventListener('keydown', (e) => {
+    if (!['ArrowLeft', 'ArrowRight'].includes(e.key)) return;
+    const modes = ['en2zh', 'zh2en', 'mix']; const k = modes.indexOf(S.mode) + (e.key === 'ArrowRight' ? 1 : -1);
+    S.mode = modes[(k + 3) % 3]; save(); renderHome(); document.querySelector(`#segMode [data-mode=${S.mode}]`).focus();
+  });
+  $('optSpeak').addEventListener('change', (e) => { S.speak = e.target.checked; save(); });
+  $('optSfx').addEventListener('change', (e) => { S.sfx = e.target.checked; save(); if (S.sfx) SFX.tap(); });
+  // levels
+  $('btnBack').addEventListener('click', goHome);
+  $('chips').addEventListener('click', (e) => { const b = e.target.closest('button'); if (!b) return; curChapter = +b.dataset.k; renderChips(); renderGrid(); });
+  $('grid').addEventListener('click', (e) => { const b = e.target.closest('.lv'); if (!b) return; ac(); startRun(normalRun(curBook, +b.dataset.i)); });
+  $('btnContinue').addEventListener('click', () => { ac(); startRun(normalRun(curBook, firstOpen(curBook))); });
+  $('btnReview').addEventListener('click', () => openNotebook(curBook, 'levels'));
+  // notebook
+  $('nbBack').addEventListener('click', () => (nb.from === 'levels' && curBook ? openLevels(curBook) : goHome()));
+  $('nbBooks').addEventListener('click', (e) => { const b = e.target.closest('button'); if (!b) return; nb.book = b.dataset.b || null; renderNotebook(); });
+  $('nbSort').addEventListener('click', (e) => { const b = e.target.closest('button'); if (!b) return; nb.sort = b.dataset.sort; renderNotebook(); });
+  $('nbList').addEventListener('click', (e) => {
+    const btn = e.target.closest('button[data-act]'); if (!btn) return;
+    const row = btn.closest('.nb-row');
+    if (btn.dataset.act === 'say') speak(row.dataset.w, true);
+    else { removeWrong(me(), row.dataset.b, row.dataset.w); save(); renderNotebook(); toast(`「${row.dataset.w}」已移出错题本`); }
+  });
+  $('nbReview').addEventListener('click', () => { if (!nb.book) return; ac(); startRun({ kind: 'review', bookId: nb.book, levels: [0], playerId: S.current, mode: S.mode, back: 'notebook' }); });
+  $('nbCsv').addEventListener('click', () => nbExport('csv'));
+  $('nbTxt').addEventListener('click', () => nbExport('txt'));
+  $('nbCopy').addEventListener('click', nbCopy);
+  $('copyClose').addEventListener('click', () => { $('ovCopy').hidden = true; });
+  // PK
+  $('pkBack').addEventListener('click', goHome);
+  $('pkNew').addEventListener('click', () => openPkNew());
+  $('pkAddPlayer').addEventListener('click', () => openPlayerForm(null, { onDone: () => openPk() }));
+  $('pkList').addEventListener('click', (e) => { const b = e.target.closest('.pk-item'); if (b) openPkMatch(b.dataset.id); });
+  $('pnBack').addEventListener('click', openPk);
+  $('pnBooks').addEventListener('click', (e) => { const b = e.target.closest('button'); if (!b) return; pn.bookId = b.dataset.id; pn.start = 1; renderPkNew(); });
+  $('pnMinus').addEventListener('click', () => { pn.start--; renderPkNew(); });
+  $('pnPlus').addEventListener('click', () => { pn.start++; renderPkNew(); });
+  $('pnStart').addEventListener('change', () => { pn.start = parseInt($('pnStart').value, 10) || 1; renderPkNew(); });
+  $('pnCount').addEventListener('click', (e) => { const b = e.target.closest('button'); if (!b) return; pn.count = +b.dataset.n; renderPkNew(); });
+  $('pnMode').addEventListener('click', (e) => { const b = e.target.closest('button'); if (!b) return; pn.mode = b.dataset.mode; renderPkNew(); });
+  $('pnWho').addEventListener('click', (e) => {
+    const b = e.target.closest('button'); if (!b) return;
+    if (b.dataset.add) return openPlayerForm(null, { onDone: (p) => { pn.sel.add(p.id); renderPkNew(); } });
+    const id = b.dataset.id; pn.sel.has(id) ? pn.sel.delete(id) : pn.sel.add(id); renderPkNew();
+  });
+  $('pnGo').addEventListener('click', createPk);
+  $('pmBack').addEventListener('click', openPk);
+  $('pmBoard').addEventListener('click', (e) => { const b = e.target.closest('[data-play]'); if (!b) return; const m = pkMatch(pmId); if (m) askHandover(m, b.dataset.play); });
+  $('handBack').addEventListener('click', () => { $('ovHand').hidden = true; });
+  $('pmNext').addEventListener('click', () => {
+    const m = pkMatch(pmId); if (!m) return;
+    openPkNew({ bookId: m.bookId, start: m.start + m.count + 1, count: m.count, mode: m.mode, sel: new Set(m.players.map((pp) => pp.id)) });
+  });
+  $('pmDel').addEventListener('click', () => {
+    if (!pmDelArmed) { pmDelArmed = true; $('pmDel').textContent = '再点一次确认删除'; $('pmDel').classList.add('armed'); return; }
+    S.pk = S.pk.filter((m) => m.id !== pmId); save(); openPk();
+  });
+  $('stepGo').addEventListener('click', () => {
+    $('ovStep').hidden = true;
+    const run = G.run; if (!run) return;
+    if (run.li < run.levels.length - 1) { run.li++; beginLevel(); } else backFromRun();
+  });
+  // game
+  $('btnPause').addEventListener('click', () => setPaused(true));
+  $('btnResume').addEventListener('click', () => setPaused(false));
+  $('btnRestart').addEventListener('click', () => { const r = G.run; setPaused(false); startRun({ ...r, li: 0, stats: null }); });
+  $('btnQuit').addEventListener('click', () => {
+    if (G.run && G.run.kind === 'pk') {
+      const q = $('btnQuit');
+      if (!q.classList.contains('armed')) { q.classList.add('armed'); q.textContent = '再点一次确认放弃'; return; }
+      return pkForfeit();
+    }
+    backFromRun();
+  });
+  $('btnSpk').addEventListener('click', () => { if (G.q) speakPrompt(G.q, true); });
+  $('btnAgain').addEventListener('click', () => { const r = G.run; startRun({ ...r, li: 0, stats: null }); });
+  $('btnNext').addEventListener('click', () => {
+    const r = G.run; if (!r) return;
+    if (r.kind === 'review') startRun({ ...r, stats: null });
+    else startRun(normalRun(r.bookId, r.levels[0] + 1));
+  });
+  $('btnToLevels').addEventListener('click', backFromRun);
+  $('rList').addEventListener('click', (e) => { const li = e.target.closest('li'); if (li) speak(li.dataset.w, true); });
+  $('btnRetry').addEventListener('click', () => { const id = pendingLoad; $('ovLoading').hidden = true; if (id) loadBook(id); });
+  $('btnLoadClose').addEventListener('click', () => { $('ovLoading').hidden = true; });
+  document.addEventListener('keydown', (e) => {
+    if (G.mode !== 'game' || !$('ovStep').hidden || !$('ovResult').hidden) return;
+    if (e.key === 'Escape' || e.key === 'p' || e.key === 'P') { e.preventDefault(); if (G.phase !== 'done') setPaused(!G.paused); return; }
+    if (G.paused) return;
+    if (/^[1-4]$/.test(e.key)) { e.preventDefault(); answer(+e.key - 1); }
+    else if (e.key === ' ' && G.q) { e.preventDefault(); speakPrompt(G.q, true); }
+  });
+  document.addEventListener('visibilitychange', () => { if (document.hidden && G.mode === 'game' && !G.paused && G.phase !== 'done') setPaused(true); });
+  window.addEventListener('resize', () => layout());
+}
+
+/* ---------------- boot ---------------- */
+renderMascot();
+bind();
+layout();
+if (!S.players.length) { renderPlayers(); showScreen('players'); openPlayerForm(null, { first: true, onDone: (p) => login(p.id) }); }
+else if (S.players.length === 1) { S.current = S.players[0].id; save(); goHome(); }
+else openPlayers();
+requestAnimationFrame((ts) => { lastTs = ts; frame(ts); });
+})();
+
+</script>
+</body>
+</html>
